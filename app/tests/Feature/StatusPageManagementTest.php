@@ -53,6 +53,7 @@ test('monitor selection remains searchable when creating a status page', functio
 
     Livewire::actingAs($user)
         ->test('pages::status-pages.create')
+        ->assertSeeHtml('wire:model.live.self="selectedMonitorIds"')
         ->set('monitorSearch', 'Needle service')
         ->assertSee($matchingMonitor->name)
         ->set('selectedMonitorIds', [$matchingMonitor->id])

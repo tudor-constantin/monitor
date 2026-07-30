@@ -61,7 +61,7 @@
                 <flux:text>{{ __('Try a different name or URL.') }}</flux:text>
             </div>
         @else
-            <flux:checkbox.group wire:model="selectedMonitorIds" class="grid min-w-0 gap-3 sm:grid-cols-2">
+            <flux:checkbox.group wire:model.live="selectedMonitorIds" class="grid min-w-0 gap-3 sm:grid-cols-2">
                 @foreach ($monitors as $monitor)
                     <div
                         class="flex min-w-0 max-w-full items-start gap-3 overflow-hidden rounded-xl border border-zinc-200 p-4 dark:border-zinc-700"
