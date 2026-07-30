@@ -1,0 +1,15 @@
+.git
+.agents
+.codex
+.env
+app/.env
+app/.env.*
+app/node_modules
+app/vendor
+app/public/build
+app/public/hot
+app/public/storage
+app/storage/logs/*
+app/storage/framework/cache/*
+app/storage/framework/sessions/*
+app/storage/framework/views/*

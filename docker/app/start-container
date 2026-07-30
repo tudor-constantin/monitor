@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -eu
+
+php artisan storage:link --force
+php artisan optimize
+
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/monitor.conf

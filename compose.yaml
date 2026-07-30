@@ -1,0 +1,100 @@
+name: monitor
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME:-Monitor}
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY:?Set APP_KEY in the deployment environment}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:?Set APP_URL in the deployment environment}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-monitor}
+      DB_USERNAME: ${DB_USERNAME:-monitor}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the deployment environment}
+      SESSION_DRIVER: database
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      CACHE_LIMITER_STORE: redis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the deployment environment}
+      REDIS_PORT: 6379
+      MAIL_MAILER: smtp
+      MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
+      MAIL_HOST: ${MAIL_HOST:?Set MAIL_HOST in the deployment environment}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:?Set MAIL_USERNAME in the deployment environment}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?Set MAIL_PASSWORD in the deployment environment}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?Set MAIL_FROM_ADDRESS in the deployment environment}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Monitor}
+      HORIZON_PREFIX: ${HORIZON_PREFIX:-monitor_horizon:}
+      HORIZON_ALLOWED_EMAILS: ${HORIZON_ALLOWED_EMAILS:-}
+      MONITOR_CHECK_RETENTION_DAYS: ${MONITOR_CHECK_RETENTION_DAYS:-90}
+      MONITOR_CREATION_LIMIT_PER_MINUTE: ${MONITOR_CREATION_LIMIT_PER_MINUTE:-10}
+      PUBLIC_SUBSCRIPTION_LIMIT_PER_HOUR: ${PUBLIC_SUBSCRIPTION_LIMIT_PER_HOUR:-5}
+    expose:
+      - "8080"
+    volumes:
+      - app_public_storage:/var/www/html/storage/app/public
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mysql:
+    image: mysql:8.4.11@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-monitor}
+      MYSQL_USER: ${DB_USERNAME:-monitor}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the deployment environment}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the deployment environment}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:7.4.10-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the deployment environment}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in the deployment environment}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  app_public_storage:
+  mysql_data:
+  redis_data:

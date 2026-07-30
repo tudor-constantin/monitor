@@ -1,0 +1,8 @@
+/.env
+/compose.override.yaml
+/.fleet
+/.idea
+/.vscode
+/.zed
+.DS_Store
+Thumbs.db
