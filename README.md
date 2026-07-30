@@ -162,6 +162,8 @@ php artisan migrate --force
 
 The application health endpoint is `/up`.
 
+Dokploy terminates HTTPS at Traefik and forwards requests to the application over HTTP. Monitor trusts Traefik's standard `X-Forwarded-*` headers so Laravel generates HTTPS URLs from the original request. Keep the `app` service behind Traefik instead of publishing port `8080` directly, and set `APP_URL` to the public HTTPS URL.
+
 ### 4. Verify the deployment
 
 From the server project directory:
