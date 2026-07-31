@@ -105,7 +105,7 @@ test('favicon discovery follows only revalidated public redirects', function () 
     Storage::disk('public')->assertExists($path);
 });
 
-test('a favicon request is blocked when the hostname resolves to a private address', function () {
+test('a favicon request is blocked when the hostname resolves to a non-global address', function (string $unsafeAddress) {
     $monitor = Monitor::factory()->create([
         'url' => 'https://internal.example.com/',
     ]);
@@ -113,7 +113,7 @@ test('a favicon request is blocked when the hostname resolves to a private addre
     $this->mock(DnsResolver::class)
         ->shouldReceive('resolve')
         ->once()
-        ->andReturn(['10.0.0.10']);
+        ->andReturn([$unsafeAddress]);
 
     Http::fake();
 
@@ -121,7 +121,19 @@ test('a favicon request is blocked when the hostname resolves to a private addre
 
     Http::assertNothingSent();
     expect($monitor->refresh()->favicon_fetched_at)->not->toBeNull();
-});
+})->with([
+    'private address' => '10.0.0.10',
+    'shared address space' => '100.64.0.10',
+    'deprecated relay anycast IPv4' => '192.88.99.10',
+    'local-use translation IPv6' => '64:ff9b:1::10',
+    'dummy IPv6 prefix' => '100:0:0:1::10',
+    'documentation IPv6 allocation' => '3fff::10',
+    'unallocated IPv6 block 4000' => '4000::10',
+    'segment routing IPv6 allocation' => '5f00::10',
+    'unallocated IPv6 block 6000' => '6000::10',
+    'deprecated site-local IPv6' => 'fec0::10',
+    'reserved high IPv6 block' => 'fe00::10',
+]);
 
 test('invalid favicon contents are not stored', function () {
     $monitor = Monitor::factory()->create();

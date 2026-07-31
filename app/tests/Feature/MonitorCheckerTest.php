@@ -149,7 +149,7 @@ test('oversized responses are rejected before they are persisted', function () {
         ->response_size_bytes->toBeNull();
 });
 
-test('a destination resolving to any private address is blocked before connecting', function () {
+test('a destination resolving to any non-global address is blocked before connecting', function (string $unsafeAddress) {
     $monitor = Monitor::factory()->create([
         'url' => 'https://rebinding.example.com/',
     ]);
@@ -157,7 +157,7 @@ test('a destination resolving to any private address is blocked before connectin
     $this->mock(DnsResolver::class)
         ->shouldReceive('resolve')
         ->once()
-        ->andReturn(['93.184.216.34', '10.0.0.8']);
+        ->andReturn(['93.184.216.34', $unsafeAddress]);
 
     Http::fake();
 
@@ -166,11 +166,24 @@ test('a destination resolving to any private address is blocked before connectin
 
     expect($monitor->checks()->sole())
         ->status->toBe(MonitorCheckStatus::Blocked)
-        ->resolved_ip->toBe('10.0.0.8')
+        ->resolved_ip->toBe($unsafeAddress)
         ->error_type->toBe('unsafe_ip_address');
 
     Http::assertNothingSent();
-});
+})->with([
+    'private address' => '10.0.0.8',
+    'shared address space' => '100.64.0.8',
+    'benchmarking range' => '198.18.0.8',
+    'deprecated relay anycast IPv4' => '192.88.99.8',
+    'local-use translation IPv6' => '64:ff9b:1::8',
+    'dummy IPv6 prefix' => '100:0:0:1::8',
+    'documentation IPv6 allocation' => '3fff::8',
+    'unallocated IPv6 block 4000' => '4000::8',
+    'segment routing IPv6 allocation' => '5f00::8',
+    'unallocated IPv6 block 6000' => '6000::8',
+    'deprecated site-local IPv6' => 'fec0::8',
+    'reserved high IPv6 block' => 'fe00::8',
+]);
 
 test('paused monitors are not checked', function () {
     $monitor = Monitor::factory()->paused()->create();

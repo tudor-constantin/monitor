@@ -18,6 +18,7 @@ services:
       APP_DEBUG: ${APP_DEBUG:-false}
       APP_URL: ${APP_URL:?Set APP_URL in the deployment environment}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       DB_CONNECTION: mysql

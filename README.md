@@ -36,6 +36,7 @@ APP_URL=http://localhost:8000
 APP_PORT=8000
 REGISTRATION_ENABLED=true
 SESSION_SECURE_COOKIE=false
+TRUSTED_PROXIES=
 ```
 
 Keep these Docker service hosts:
@@ -119,6 +120,7 @@ Create the production environment from `.env.example` or add the same variables 
 - `MAIL_FROM_ADDRESS`
 - `HORIZON_ALLOWED_EMAILS`
 - `REGISTRATION_ENABLED`
+- `TRUSTED_PROXIES`
 
 Production values must include:
 
@@ -127,7 +129,10 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://monitor.example.com
 SESSION_SECURE_COOKIE=true
+TRUSTED_PROXIES=172.20.0.0/16
 ```
+
+`TRUSTED_PROXIES` accepts a comma-separated list of proxy IP addresses or CIDR ranges. The value above is only an example; use the narrowest network that contains the reverse proxy for your installation. Leave it empty when accessing Monitor directly without a reverse proxy.
 
 Use `MAIL_SCHEME=smtp` with port `587` for STARTTLS or `MAIL_SCHEME=smtps` with port `465` for implicit TLS.
 
@@ -162,7 +167,7 @@ php artisan migrate --force
 
 The application health endpoint is `/up`.
 
-Dokploy terminates HTTPS at Traefik and forwards requests to the application over HTTP. Monitor trusts Traefik's standard `X-Forwarded-*` headers so Laravel generates HTTPS URLs from the original request. Keep the `app` service behind Traefik instead of publishing port `8080` directly, and set `APP_URL` to the public HTTPS URL.
+Dokploy terminates HTTPS at Traefik and forwards requests to the application over HTTP. Set `TRUSTED_PROXIES` to the CIDR of the isolated Docker network shared with Traefik so Laravel accepts its forwarded protocol and client IP. You can inspect a network with `docker network inspect <network-name>`. Keep the `app` service behind Traefik instead of publishing port `8080` directly, and set `APP_URL` to the public HTTPS URL. Wildcard values such as `TRUSTED_PROXIES=*` are rejected.
 
 ### 4. Verify the deployment
 

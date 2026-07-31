@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Services\Monitoring\IpAddressSafety;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Str;
@@ -9,6 +10,10 @@ use Illuminate\Translation\PotentiallyTranslatedString;
 
 class SafePublicUrl implements ValidationRule
 {
+    public function __construct(
+        private readonly IpAddressSafety $ipAddressSafety = new IpAddressSafety,
+    ) {}
+
     /**
      * Run the validation rule.
      *
@@ -91,10 +96,6 @@ class SafePublicUrl implements ValidationRule
             return false;
         }
 
-        return filter_var(
-            $host,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
-        ) === false;
+        return ! $this->ipAddressSafety->isPublic($host);
     }
 }
