@@ -62,6 +62,19 @@ docker compose exec app php artisan migrate
 
 Open [http://localhost:8000](http://localhost:8000).
 
+The local stack also provides these development panels:
+
+- phpMyAdmin: [http://localhost:8080](http://localhost:8080). Sign in with the `DB_USERNAME` and `DB_PASSWORD` values from `.env`.
+- Mailpit: [http://localhost:8025](http://localhost:8025). Emails sent by the application are captured here instead of being delivered externally.
+
+The default panel ports can be changed in `.env`:
+
+```dotenv
+PHPMYADMIN_PORT=8080
+MAILPIT_WEB_PORT=8025
+MAILPIT_SMTP_PORT=1025
+```
+
 Register the first administrator at [http://localhost:8000/register](http://localhost:8000/register). Then set:
 
 ```dotenv
