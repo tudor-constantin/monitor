@@ -202,9 +202,7 @@ new #[Title('Website details')] class extends Component
         </flux:card>
     </div>
 
-    <flux:text>
-        {{ __('Uptime is the percentage of recorded checks that completed successfully; it does not measure continuous availability.') }}
-    </flux:text>
+    <x-uptime-explanation />
 
     <div class="grid gap-6 xl:grid-cols-3">
         <flux:card class="space-y-5 xl:col-span-2">

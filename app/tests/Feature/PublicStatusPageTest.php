@@ -1,10 +1,17 @@
 <?php
 
+use App\Enums\MonitorCheckStatus;
 use App\Enums\MonitorStatus;
 use App\Models\Incident;
 use App\Models\Monitor;
+use App\Models\MonitorCheck;
 use App\Models\StatusPage;
 use App\Models\User;
+use Illuminate\Support\Carbon;
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 test('a published status page is publicly accessible with only selected monitors', function () {
     $user = User::factory()->create();
@@ -23,6 +30,10 @@ test('a published status page is publicly accessible with only selected monitors
         'description' => 'Live availability information.',
     ]);
     $statusPage->monitors()->attach($selectedMonitor, ['position' => 0]);
+    MonitorCheck::factory()->for($selectedMonitor)->create([
+        'status' => MonitorCheckStatus::Successful,
+        'checked_at' => now(),
+    ]);
 
     $this->get(route('status-pages.public', $statusPage))
         ->assertOk()
@@ -30,7 +41,18 @@ test('a published status page is publicly accessible with only selected monitors
         ->assertSee('All systems operational')
         ->assertSee('Public API')
         ->assertSee('Up')
+        ->assertSee('About uptime')
         ->assertSee('Uptime is the percentage of recorded checks that completed successfully')
+        ->assertSee(now()->format('D, M j, Y'))
+        ->assertSee('No incidents')
+        ->assertSee('1 of 1 checks successful')
+        ->assertSee('100.00% daily uptime')
+        ->assertSee('Swipe horizontally and tap a day for details.')
+        ->assertSee('<ui-dropdown', escape: false)
+        ->assertSee('hover', escape: false)
+        ->assertSee('data-flux-tooltip', escape: false)
+        ->assertSee('role="region"', escape: false)
+        ->assertSee('tabindex="0"', escape: false)
         ->assertDontSee($privateMonitor->name)
         ->assertDontSee($selectedMonitor->url);
 });

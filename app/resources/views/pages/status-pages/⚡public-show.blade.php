@@ -106,7 +106,16 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
      *     monitors: array<int, array{
      *         uptime_percentage: float|null,
      *         total_checks: int,
-     *         segments: list<array{date: string, label: string, state: string}>
+     *         segments: list<array{
+     *             date: string,
+     *             date_label: string,
+     *             label: string,
+     *             state: string,
+     *             state_label: string,
+     *             successful_checks: int,
+     *             total_checks: int,
+     *             uptime_percentage: float|null
+     *         }>
      *     }>
      * }
      */
@@ -287,9 +296,7 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
                                 {{ $this->health->label() }} ·
                                 {{ $this->history['starts_at'] }} – {{ $this->history['ends_at'] }}
                             </flux:text>
-                            <flux:text class="mt-1">
-                                {{ __('Uptime is the percentage of recorded checks that completed successfully; it does not measure continuous availability.') }}
-                            </flux:text>
+                            <x-uptime-explanation class="mt-2" />
                         </div>
                     </div>
 
@@ -362,25 +369,92 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
                             </div>
                         </div>
 
-                        <div class="overflow-x-auto pb-1">
+                        <flux:text class="sm:hidden">
+                            {{ __('Swipe horizontally and tap a day for details.') }}
+                        </flux:text>
+
+                        <div
+                            class="overflow-x-auto overscroll-x-contain pb-2"
+                            role="region"
+                            tabindex="0"
+                            aria-label="{{ __('Daily uptime history for :service', ['service' => $monitor->pivot->display_name ?? $monitor->name]) }}"
+                        >
                             <div @class([
-                                'flex h-6 gap-1',
-                                'min-w-[34rem]' => $historyDays === 30,
-                                'min-w-[54rem]' => $historyDays === 90,
+                                'space-y-2',
+                                'min-w-[42rem]' => $historyDays === 30,
+                                'min-w-[78rem]' => $historyDays === 90,
                             ])>
-                                @foreach ($monitorHistory['segments'] as $segment)
-                                    <span
-                                        @class([
-                                            'h-full min-w-1 flex-1 rounded-sm',
-                                            'bg-emerald-500' => $segment['state'] === 'operational',
-                                            'bg-amber-400' => $segment['state'] === 'degraded',
-                                            'bg-red-500' => $segment['state'] === 'outage',
-                                            'bg-zinc-200 dark:bg-zinc-700' => $segment['state'] === 'no-data',
-                                        ])
-                                        title="{{ $segment['label'] }}"
-                                        aria-label="{{ $segment['label'] }}"
-                                    ></span>
-                                @endforeach
+                                <div class="flex h-8 gap-1">
+                                    @foreach ($monitorHistory['segments'] as $segment)
+                                        <flux:tooltip
+                                            toggleable
+                                            hover
+                                            position="top"
+                                            class="min-w-2 flex-1"
+                                            wire:key="history-segment-{{ $monitor->id }}-{{ $segment['date'] }}"
+                                        >
+                                            <button
+                                                type="button"
+                                                @class([
+                                                    'h-full w-full cursor-pointer rounded-sm outline-none transition hover:brightness-90 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 dark:focus-visible:ring-white dark:focus-visible:ring-offset-zinc-900',
+                                                    'bg-emerald-500' => $segment['state'] === 'operational',
+                                                    'bg-amber-400' => $segment['state'] === 'degraded',
+                                                    'bg-red-500' => $segment['state'] === 'outage',
+                                                    'bg-zinc-200 dark:bg-zinc-700' => $segment['state'] === 'no-data',
+                                                ])
+                                                aria-label="{{ $segment['label'] }}"
+                                            ></button>
+
+                                            <flux:tooltip.content class="w-64 space-y-2 text-left">
+                                                <time datetime="{{ $segment['date'] }}" class="block text-sm font-semibold">
+                                                    {{ $segment['date_label'] }}
+                                                </time>
+
+                                                <div class="flex items-center gap-2">
+                                                    @if ($segment['state'] === 'operational')
+                                                        <flux:icon.check-circle class="size-4 text-emerald-400" />
+                                                    @elseif ($segment['state'] === 'degraded')
+                                                        <flux:icon.exclamation-triangle class="size-4 text-amber-300" />
+                                                    @elseif ($segment['state'] === 'outage')
+                                                        <flux:icon.x-circle class="size-4 text-red-400" />
+                                                    @else
+                                                        <flux:icon.minus-circle class="size-4 text-zinc-300" />
+                                                    @endif
+                                                    <span>{{ __($segment['state_label']) }}</span>
+                                                </div>
+
+                                                <div class="space-y-1 font-normal text-zinc-200">
+                                                    <p>
+                                                        {{ __(':successful of :total checks successful', [
+                                                            'successful' => $segment['successful_checks'],
+                                                            'total' => $segment['total_checks'],
+                                                        ]) }}
+                                                    </p>
+                                                    <p>
+                                                        {{ $segment['uptime_percentage'] === null
+                                                            ? __('Daily uptime unavailable')
+                                                            : number_format($segment['uptime_percentage'], 2).'% '.__('daily uptime') }}
+                                                    </p>
+                                                </div>
+                                            </flux:tooltip.content>
+                                        </flux:tooltip>
+                                    @endforeach
+                                </div>
+
+                                <div class="grid grid-cols-3 text-xs text-zinc-500 dark:text-zinc-400" aria-hidden="true">
+                                    <time datetime="{{ $monitorHistory['segments'][0]['date'] }}">
+                                        {{ $monitorHistory['segments'][0]['date_label'] }}
+                                    </time>
+                                    <time
+                                        datetime="{{ $monitorHistory['segments'][intdiv(count($monitorHistory['segments']) - 1, 2)]['date'] }}"
+                                        class="text-center"
+                                    >
+                                        {{ $monitorHistory['segments'][intdiv(count($monitorHistory['segments']) - 1, 2)]['date_label'] }}
+                                    </time>
+                                    <time datetime="{{ $monitorHistory['segments'][count($monitorHistory['segments']) - 1]['date'] }}" class="text-right">
+                                        {{ $monitorHistory['segments'][count($monitorHistory['segments']) - 1]['date_label'] }}
+                                    </time>
+                                </div>
                             </div>
                         </div>
                     </div>

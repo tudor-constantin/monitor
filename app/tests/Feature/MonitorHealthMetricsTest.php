@@ -122,6 +122,7 @@ test('monitor details show health metrics and incident history only to the owner
         ->test('pages::monitors.show', ['monitor' => $monitor])
         ->assertSee('Response time · 24 hours')
         ->assertSee('100.00%')
+        ->assertSee('About uptime')
         ->assertSee('Uptime is the percentage of recorded checks that completed successfully')
         ->assertSee('125 ms')
         ->assertSee('Incident timeline')

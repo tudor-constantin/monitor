@@ -17,7 +17,16 @@ class StatusPageHistoryService
      *     monitors: array<int, array{
      *         uptime_percentage: float|null,
      *         total_checks: int,
-     *         segments: list<array{date: string, label: string, state: string}>
+     *         segments: list<array{
+     *             date: string,
+     *             date_label: string,
+     *             label: string,
+     *             state: string,
+     *             state_label: string,
+     *             successful_checks: int,
+     *             total_checks: int,
+     *             uptime_percentage: float|null
+     *         }>
      *     }>
      * }
      */
@@ -66,11 +75,26 @@ class StatusPageHistoryService
                     $dailySuccessful === 0 => 'outage',
                     default => 'degraded',
                 };
+                $stateLabel = $this->stateLabel($state);
+                $dailyUptimePercentage = $dailyTotal === 0
+                    ? null
+                    : round(($dailySuccessful / $dailyTotal) * 100, 2);
 
                 $segments[] = [
                     'date' => $date->toDateString(),
-                    'label' => $this->segmentLabel($date->format('M j, Y'), $state, $dailySuccessful, $dailyTotal),
+                    'date_label' => $date->format('D, M j, Y'),
+                    'label' => $this->segmentLabel(
+                        $date->format('D, M j, Y'),
+                        $stateLabel,
+                        $dailySuccessful,
+                        $dailyTotal,
+                        $dailyUptimePercentage,
+                    ),
                     'state' => $state,
+                    'state_label' => $stateLabel,
+                    'successful_checks' => $dailySuccessful,
+                    'total_checks' => $dailyTotal,
+                    'uptime_percentage' => $dailyUptimePercentage,
                 ];
             }
 
@@ -90,13 +114,27 @@ class StatusPageHistoryService
         ];
     }
 
-    private function segmentLabel(string $date, string $state, int $successfulChecks, int $totalChecks): string
+    private function stateLabel(string $state): string
     {
         return match ($state) {
-            'no-data' => "{$date}: no data",
-            'operational' => "{$date}: operational ({$successfulChecks}/{$totalChecks} checks successful)",
-            'outage' => "{$date}: outage (0/{$totalChecks} checks successful)",
-            default => "{$date}: degraded ({$successfulChecks}/{$totalChecks} checks successful)",
+            'operational' => 'No incidents',
+            'degraded' => 'Degraded',
+            'outage' => 'Outage',
+            default => 'No data',
         };
+    }
+
+    private function segmentLabel(
+        string $date,
+        string $state,
+        int $successfulChecks,
+        int $totalChecks,
+        ?float $uptimePercentage,
+    ): string {
+        $uptime = $uptimePercentage === null
+            ? 'daily uptime unavailable'
+            : number_format($uptimePercentage, 2).'% daily uptime';
+
+        return "{$date}: {$state}; {$successfulChecks} of {$totalChecks} checks successful; {$uptime}";
     }
 }
