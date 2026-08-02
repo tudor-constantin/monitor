@@ -287,6 +287,9 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
                                 {{ $this->health->label() }} ·
                                 {{ $this->history['starts_at'] }} – {{ $this->history['ends_at'] }}
                             </flux:text>
+                            <flux:text class="mt-1">
+                                {{ __('Uptime is the percentage of recorded checks that completed successfully; it does not measure continuous availability.') }}
+                            </flux:text>
                         </div>
                     </div>
 

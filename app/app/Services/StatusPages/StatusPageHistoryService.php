@@ -53,7 +53,7 @@ class StatusPageHistoryService
             $successfulChecks = 0;
 
             for ($offset = 0; $offset < $days; $offset++) {
-                $date = $startsAt->addDays($offset);
+                $date = $startsAt->copy()->addDays($offset);
                 $dailyCheck = $dailyChecks->get($monitor->id.':'.$date->toDateString());
                 $dailyTotal = (int) optional($dailyCheck)->getAttribute('total_checks');
                 $dailySuccessful = (int) optional($dailyCheck)->getAttribute('successful_checks');

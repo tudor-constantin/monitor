@@ -30,6 +30,7 @@ test('a published status page is publicly accessible with only selected monitors
         ->assertSee('All systems operational')
         ->assertSee('Public API')
         ->assertSee('Up')
+        ->assertSee('Uptime is the percentage of recorded checks that completed successfully')
         ->assertDontSee($privateMonitor->name)
         ->assertDontSee($selectedMonitor->url);
 });
