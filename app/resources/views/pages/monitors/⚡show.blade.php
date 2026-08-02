@@ -202,6 +202,8 @@ new #[Title('Website details')] class extends Component
         </flux:card>
     </div>
 
+    <x-uptime-explanation />
+
     <div class="grid gap-6 xl:grid-cols-3">
         <flux:card class="space-y-5 xl:col-span-2">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
