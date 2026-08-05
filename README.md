@@ -220,9 +220,14 @@ Scheduled maintenance:
 | `monitors:dispatch-due` | every minute | Reserve due websites and queue their checks |
 | `horizon:snapshot` | every 5 minutes | Record queue metrics for the Horizon dashboard |
 | `monitors:report-stale` | hourly | Warn when an active website stopped producing checks |
+| `monitors:roll-up-checks` | 01:30 | Aggregate recent checks into daily uptime stats |
 | `monitors:prune-checks` | 02:00 | Delete raw checks past `MONITOR_CHECK_RETENTION_DAYS` |
 | `model:prune` | 02:30 | Delete unconfirmed subscription requests |
 | `monitors:dispatch-favicon-refresh` | weekly | Re-fetch every website's favicon |
+
+The roll-up runs before the pruner on purpose: it is what preserves a day's
+uptime once the raw checks behind it are deleted, which is what lets status page
+history outlive `MONITOR_CHECK_RETENTION_DAYS`.
 
 ### Checks and redirects
 
@@ -245,6 +250,14 @@ docker compose build --pull app
 docker compose up -d
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan horizon:status
+```
+
+After upgrading to a release that introduces daily uptime stats, build them once
+so status page history covers your existing data instead of waiting for the first
+nightly run:
+
+```bash
+docker compose exec app php artisan monitors:roll-up-checks --backfill
 ```
 
 ## Controlled dependency updates

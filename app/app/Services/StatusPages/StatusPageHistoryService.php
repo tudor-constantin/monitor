@@ -7,6 +7,7 @@ namespace App\Services\StatusPages;
 use App\Enums\MonitorCheckStatus;
 use App\Models\Monitor;
 use App\Models\MonitorCheck;
+use App\Models\MonitorCheckDailyStat;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -167,8 +168,15 @@ class StatusPageHistoryService
     /**
      * Per-monitor, per-day check counts keyed by "monitorId:Y-m-d".
      *
-     * Grouped in one query per render rather than per monitor, then indexed by
-     * "monitorId:Y-m-d" so building the segments is a lookup rather than a scan.
+     * Raw checks stay authoritative for every day they can still exist for: they
+     * are complete by construction, whereas the roll-up is only as current as the
+     * last nightly run, and reading a day from the roll-up before it has been
+     * built would silently under-report uptime.
+     *
+     * The roll-up's job is the part raw checks cannot do — days whose checks have
+     * already been pruned. That is what lets a 90-day status page keep working
+     * with a 30-day retention, and what stops history from evaporating behind the
+     * pruner. Where both have a day, live wins.
      *
      * @param  list<int>  $monitorIds
      * @return array<string, array{total_checks: int, successful_checks: int}>
@@ -181,6 +189,28 @@ class StatusPageHistoryService
 
         $counts = [];
 
+        $rolledUp = MonitorCheckDailyStat::query()
+            ->select(['monitor_id', 'date', 'total_checks', 'successful_checks'])
+            ->whereIn('monitor_id', $monitorIds)
+            // Compared as plain dates, not through whereDate(): that wraps the
+            // column in DATE(), which would make the (monitor_id, date) index
+            // unusable on a column that is already a DATE.
+            ->whereBetween('date', [$startsAt->toDateString(), $endsAt->toDateString()])
+            ->get();
+
+        foreach ($rolledUp as $stat) {
+            $counts[$stat->monitor_id.':'.$stat->date->toDateString()] = [
+                'total_checks' => $stat->total_checks,
+                'successful_checks' => $stat->successful_checks,
+            ];
+        }
+
+        // Only look at raw checks as far back as they are retained; beyond that
+        // the pruner has removed them and the roll-up is the only witness.
+        $retentionDays = max(1, (int) config('monitoring.check_retention_days', 90));
+        $liveFrom = now()->startOfDay()->subDays($retentionDays);
+        $liveFrom = $liveFrom->greaterThan($startsAt) ? $liveFrom : $startsAt;
+
         $liveChecks = MonitorCheck::query()
             ->select('monitor_id')
             ->selectRaw('DATE(checked_at) AS check_date')
@@ -190,7 +220,7 @@ class StatusPageHistoryService
                 [MonitorCheckStatus::Successful->value],
             )
             ->whereIn('monitor_id', $monitorIds)
-            ->whereBetween('checked_at', [$startsAt, $endsAt])
+            ->whereBetween('checked_at', [$liveFrom, $endsAt])
             ->groupBy('monitor_id')
             ->groupByRaw('DATE(checked_at)')
             ->get();

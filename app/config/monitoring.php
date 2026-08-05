@@ -23,4 +23,11 @@ return [
      * reported as stale, which surfaces checks that were dropped rather than run.
      */
     'stale_check_interval_multiplier' => (int) env('MONITOR_STALE_INTERVAL_MULTIPLIER', 3),
+
+    /*
+     * Daily uptime stats survive the raw check retention, so status page history
+     * keeps working after the checks behind it have been pruned. One row per
+     * monitor per day, so the default keeps two years for very little space.
+     */
+    'daily_stat_retention_days' => (int) env('MONITOR_DAILY_STAT_RETENTION_DAYS', 730),
 ];
