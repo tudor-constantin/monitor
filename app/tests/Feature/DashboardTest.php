@@ -45,6 +45,14 @@ test('dashboard statistics and recent monitors are scoped to the authenticated u
         'name' => 'Degraded website',
         'status' => MonitorStatus::Degraded,
     ]);
+    Monitor::factory()->for($user)->create([
+        'name' => 'Pending worker',
+        'status' => MonitorStatus::Pending,
+    ]);
+    Monitor::factory()->for($user)->create([
+        'name' => 'Unavailable gateway',
+        'status' => MonitorStatus::Down,
+    ]);
     Monitor::factory()->for($user)->paused()->create([
         'name' => 'Paused service',
     ]);
@@ -56,10 +64,17 @@ test('dashboard statistics and recent monitors are scoped to the authenticated u
     Livewire::actingAs($user)
         ->test('pages::dashboard')
         ->assertSet('monitorStats', [
-            'total' => 3,
+            'total' => 5,
             'operational' => 1,
-            'attention' => 1,
+            'attention' => 2,
             'paused' => 1,
+        ])
+        ->assertSeeInOrder([
+            'Unavailable gateway',
+            'Degraded website',
+            'Pending worker',
+            'Operational API',
+            'Paused service',
         ])
         ->assertSee('Operational API')
         ->assertSee('Degraded website')

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Monitoring;
 
 use App\Data\MonitorMetrics;
@@ -58,17 +60,20 @@ class MonitorMetricsService
             ])
             ->orderByRaw(
                 'CASE monitors.status
-                    WHEN ? THEN 0
-                    WHEN ? THEN 1
-                    WHEN ? THEN 2
-                    WHEN ? THEN 3
-                    ELSE 4
+                    WHEN ? THEN ?
+                    WHEN ? THEN ?
+                    WHEN ? THEN ?
+                    WHEN ? THEN ?
+                    WHEN ? THEN ?
+                    ELSE ?
                 END',
                 [
-                    MonitorStatus::Down->value,
-                    MonitorStatus::Degraded->value,
-                    MonitorStatus::Pending->value,
-                    MonitorStatus::Up->value,
+                    MonitorStatus::Down->value, MonitorStatus::Down->sortWeight(),
+                    MonitorStatus::Degraded->value, MonitorStatus::Degraded->sortWeight(),
+                    MonitorStatus::Pending->value, MonitorStatus::Pending->sortWeight(),
+                    MonitorStatus::Up->value, MonitorStatus::Up->sortWeight(),
+                    MonitorStatus::Paused->value, MonitorStatus::Paused->sortWeight(),
+                    MonitorStatus::Paused->sortWeight() + 1,
                 ],
             )
             ->latest()
