@@ -32,7 +32,7 @@ test('only globally routable IP addresses are considered public', function (stri
 test('safe public URLs pass validation', function (string $url) {
     $failed = false;
 
-    (new SafePublicUrl)->validate('url', $url, function () use (&$failed): void {
+    (new SafePublicUrl(new IpAddressSafety))->validate('url', $url, function () use (&$failed): void {
         $failed = true;
     });
 
@@ -47,7 +47,7 @@ test('safe public URLs pass validation', function (string $url) {
 test('unsafe or internal URLs fail validation', function (string $url) {
     $failed = false;
 
-    (new SafePublicUrl)->validate('url', $url, function () use (&$failed): void {
+    (new SafePublicUrl(new IpAddressSafety))->validate('url', $url, function () use (&$failed): void {
         $failed = true;
     });
 
