@@ -37,6 +37,24 @@ test('notification preferences live in settings and link to the inbox', function
     expect(route('notifications.edit', absolute: false))->toBe('/settings/notifications');
 });
 
+test('every settings screen carries the same page heading', function (string $route) {
+    $user = User::factory()->create();
+
+    // The heading lives in the shared partial, so a new settings screen that
+    // forgets to include it renders without any page title at all -- which is
+    // exactly what happened when notification preferences moved in here.
+    $this->actingAs($user)
+        // Security sits behind password confirmation; the others ignore this.
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route($route))
+        ->assertOk()
+        ->assertSee('Manage your profile and account settings');
+})->with([
+    'profile' => 'profile.edit',
+    'notifications' => 'notifications.edit',
+    'security' => 'security.edit',
+]);
+
 test('the workspace notifications entry opens the inbox rather than the preferences', function () {
     $user = User::factory()->create();
 

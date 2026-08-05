@@ -39,6 +39,10 @@ new #[Title('Notification settings')] class extends Component {
 }; ?>
 
 <section class="w-full">
+    @include('partials.settings-heading')
+
+    <flux:heading class="sr-only">{{ __('Notification settings') }}</flux:heading>
+
     <x-pages::settings.layout
         :heading="__('Notifications')"
         :subheading="__('Choose how Monitor alerts you when one of your websites goes down or recovers.')"
