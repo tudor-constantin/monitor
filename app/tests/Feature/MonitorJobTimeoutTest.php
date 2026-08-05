@@ -3,6 +3,7 @@
 use App\Actions\Monitors\DispatchDueMonitorChecks;
 use App\Jobs\CheckMonitor;
 use App\Models\Monitor;
+use Illuminate\Database\Eloquent\MissingAttributeException;
 use Illuminate\Support\Facades\Queue;
 
 test('a check dispatched by the scheduler gets a timeout that matches its real HTTP budget', function () {
@@ -40,6 +41,16 @@ test('the queue timeout always outlasts the HTTP budget of the check it runs', f
     'default' => 10,
     'maximum' => 60,
 ]);
+
+test('reading a column that was never selected raises outside production', function () {
+    $monitor = Monitor::factory()->create();
+    $partial = Monitor::query()->select(['id'])->findOrFail($monitor->id);
+
+    // Guards the guard: without this, a future partial-select regression would
+    // go back to silently reading null instead of failing in CI.
+    expect(fn () => $partial->timeout_seconds)
+        ->toThrow(MissingAttributeException::class);
+});
 
 test('a check falls back to the configured ceiling when it cannot read the real timeout', function () {
     config(['monitoring.max_timeout_seconds' => 45]);
