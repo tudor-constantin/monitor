@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Rules;
 
 use App\Services\Monitoring\IpAddressSafety;
@@ -11,7 +13,7 @@ use Illuminate\Translation\PotentiallyTranslatedString;
 class SafePublicUrl implements ValidationRule
 {
     public function __construct(
-        private readonly IpAddressSafety $ipAddressSafety = new IpAddressSafety,
+        private readonly IpAddressSafety $ipAddressSafety,
     ) {}
 
     /**
