@@ -25,6 +25,7 @@ test('a favicon is downloaded from a public monitor origin and stored locally', 
         ->andReturn(['93.184.216.34']);
 
     Http::fake([
+        'https://status.example.com/' => Http::response('', 404),
         'https://status.example.com/favicon.ico' => Http::response($png),
     ]);
 
