@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Concerns\ExpiresUniqueJobLock;
 use App\Models\Monitor;
 use App\Services\Monitoring\MonitorFaviconFetcher;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -16,7 +17,7 @@ use Throwable;
 #[DeleteWhenMissingModels]
 class FetchMonitorFavicon implements ShouldBeUnique, ShouldQueue
 {
-    use Queueable;
+    use ExpiresUniqueJobLock, Queueable;
 
     public int $tries = 3;
 
