@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Monitoring;
 
+use App\Data\SafeHttpResult;
 use App\Exceptions\Monitoring\ResponseTooLargeException;
+use App\Exceptions\Monitoring\TooManyRedirectsException;
+use App\Exceptions\Monitoring\UnsafeRequestException;
 use App\Models\Monitor;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -44,13 +46,13 @@ class MonitorFaviconFetcher
         $candidates[] = "{$origin}/favicon.ico";
 
         foreach (array_values(array_unique($candidates)) as $faviconUrl) {
-            $response = $this->request($faviconUrl, self::MAX_IMAGE_BYTES, true, deadline: $deadline);
+            $result = $this->request($faviconUrl, self::MAX_IMAGE_BYTES, true, $deadline);
 
-            if ($response === null || ! $response->successful()) {
+            if ($result === null || ! $result->response->successful()) {
                 continue;
             }
 
-            $body = $response->body();
+            $body = $result->response->body();
             $extension = $this->detectExtension($body);
 
             if ($extension !== null) {
@@ -66,13 +68,16 @@ class MonitorFaviconFetcher
      */
     private function discoverIconUrls(string $origin, float $deadline): array
     {
-        $documentUrl = "{$origin}/";
-        $response = $this->request($documentUrl, self::MAX_DOCUMENT_BYTES, false, $documentUrl, $deadline);
+        $result = $this->request("{$origin}/", self::MAX_DOCUMENT_BYTES, false, $deadline);
 
-        if ($response === null || ! $response->successful()) {
+        if ($result === null || ! $result->response->successful()) {
             return [];
         }
 
+        // Relative icon hrefs resolve against the URL the document was actually
+        // served from, which may differ from the origin after a redirect.
+        $documentUrl = $result->effectiveUrl;
+        $response = $result->response;
         $body = $response->body();
 
         if (! Str::contains(Str::lower($response->header('Content-Type')), ['html', 'xhtml'])
@@ -100,7 +105,7 @@ class MonitorFaviconFetcher
                 continue;
             }
 
-            $resolvedUrl = $this->resolveUrl($documentUrl, $href);
+            $resolvedUrl = $this->safeHttpFetcher->resolveLocation($documentUrl, $href);
 
             if ($resolvedUrl !== null) {
                 $candidates[] = $resolvedUrl;
@@ -139,98 +144,36 @@ class MonitorFaviconFetcher
         return $path;
     }
 
+    /**
+     * Fetch $url, following redirects. Favicon discovery is best effort, so
+     * every failure mode collapses to null and the caller moves on to the next
+     * candidate.
+     */
     private function request(
         string $url,
         int $maximumBytes,
         bool $acceptImage,
-        ?string &$effectiveUrl = null,
-        float $deadline = PHP_FLOAT_MAX,
-    ): ?Response {
-        for ($redirects = 0; $redirects <= self::MAX_REDIRECTS; $redirects++) {
-            if (microtime(true) >= $deadline) {
-                return null;
-            }
-
-            $requestDetails = $this->safeRequestDetails($url);
-
-            if ($requestDetails === null) {
-                return null;
-            }
-
-            [$host, $port, $resolvedAddress] = $requestDetails;
-
-            try {
-                $response = $this->safeHttpFetcher->send(
-                    Http::connectTimeout(3)
-                        ->timeout(8)
-                        ->withUserAgent('Monitor/1.0')
-                        ->accept($acceptImage
-                            ? 'image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/vnd.microsoft.icon'
-                            : 'text/html,application/xhtml+xml'),
-                    'GET',
-                    $url,
-                    $host,
-                    $port,
-                    $resolvedAddress,
-                    $maximumBytes,
-                );
-            } catch (ConnectionException|ResponseTooLargeException) {
-                return null;
-            }
-
-            if (strlen($response->body()) > $maximumBytes) {
-                return null;
-            }
-
-            if (! $response->redirect()) {
-                $effectiveUrl = $url;
-
-                return $response;
-            }
-
-            $location = $response->header('Location');
-            $redirectUrl = $this->resolveUrl($url, $location);
-
-            if ($redirectUrl === null) {
-                return null;
-            }
-
-            $url = $redirectUrl;
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array{0: string, 1: int, 2: string}|null Host, port, and the resolved, validated public address.
-     */
-    private function safeRequestDetails(string $url): ?array
-    {
-        $parts = parse_url($url);
-
-        if (! is_array($parts)) {
+        float $deadline,
+    ): ?SafeHttpResult {
+        try {
+            $result = $this->safeHttpFetcher->sendFollowingRedirects(
+                fn (int $timeoutSeconds) => Http::connectTimeout(min(3, $timeoutSeconds))
+                    ->timeout(min(8, $timeoutSeconds))
+                    ->withUserAgent('Monitor/1.0')
+                    ->accept($acceptImage
+                        ? 'image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/vnd.microsoft.icon'
+                        : 'text/html,application/xhtml+xml'),
+                'GET',
+                $url,
+                $maximumBytes,
+                self::MAX_REDIRECTS,
+                $deadline,
+            );
+        } catch (ConnectionException|ResponseTooLargeException|TooManyRedirectsException|UnsafeRequestException) {
             return null;
         }
 
-        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
-        $host = Str::of((string) ($parts['host'] ?? ''))->trim('[]')->toString();
-        $port = (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
-
-        if (! in_array($scheme, ['http', 'https'], true)
-            || $host === ''
-            || ! in_array($port, [80, 443], true)
-            || isset($parts['user'])
-            || isset($parts['pass'])) {
-            return null;
-        }
-
-        $resolvedAddress = $this->safeHttpFetcher->resolveSafeAddress($host);
-
-        if ($resolvedAddress === null) {
-            return null;
-        }
-
-        return [$host, $port, $resolvedAddress];
+        return strlen($result->response->body()) > $maximumBytes ? null : $result;
     }
 
     private function originFor(string $url): ?string
@@ -252,46 +195,6 @@ class MonitorFaviconFetcher
         $portSuffix = isset($parts['port']) ? ':'.(int) $parts['port'] : '';
 
         return "{$scheme}://{$urlHost}{$portSuffix}";
-    }
-
-    private function resolveUrl(string $baseUrl, string $location): ?string
-    {
-        $location = trim(html_entity_decode($location, ENT_QUOTES | ENT_HTML5));
-
-        if ($location === '' || str_starts_with($location, '#')) {
-            return null;
-        }
-
-        if (str_starts_with($location, '//')) {
-            $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
-
-            return is_string($scheme) ? "{$scheme}:{$location}" : null;
-        }
-
-        if (filter_var($location, FILTER_VALIDATE_URL) !== false) {
-            return $location;
-        }
-
-        $baseParts = parse_url($baseUrl);
-
-        if (! is_array($baseParts)) {
-            return null;
-        }
-
-        $scheme = (string) ($baseParts['scheme'] ?? '');
-        $host = (string) ($baseParts['host'] ?? '');
-
-        if ($scheme === '' || $host === '') {
-            return null;
-        }
-
-        $urlHost = str_contains($host, ':') ? "[{$host}]" : $host;
-        $portSuffix = isset($baseParts['port']) ? ':'.(int) $baseParts['port'] : '';
-        $path = str_starts_with($location, '/')
-            ? $location
-            : '/'.ltrim($location, '/');
-
-        return "{$scheme}://{$urlHost}{$portSuffix}{$path}";
     }
 
     private function recordAttempt(Monitor $monitor): ?string

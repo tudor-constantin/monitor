@@ -213,6 +213,18 @@ The `app` container supervises:
 
 Horizon processes website checks and notifications. Scheduler dispatches checks according to each website's configured interval.
 
+### Checks and redirects
+
+A check follows up to five redirects. Every hop is revalidated independently —
+scheme, port, credentials, and the resolved IP address — so a public URL cannot
+redirect a check into a private network. The expected status code is compared
+against the *final* response, which is why a site that moves apex to www, or HTTP
+to HTTPS, is reported on its real status rather than on its redirect.
+
+When a hostname resolves to several addresses, they are tried in turn (IPv4
+first) until one answers, so a single unreachable address on a multi-homed host
+does not raise a false outage.
+
 ## Updating production
 
 Pull the new release and run:
@@ -253,7 +265,6 @@ guards keep it away from real data, and both matter:
 So the suite always targets `monitor_testing`. Create that database once before
 the first manual run; connection host and credentials remain overridable via the
 environment for local, Docker, or CI use.
-
 
 From an environment with PHP 8.4, MySQL, Redis, and Node.js available:
 
