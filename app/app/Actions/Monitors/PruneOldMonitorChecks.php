@@ -9,6 +9,8 @@ use Carbon\CarbonInterface;
 
 class PruneOldMonitorChecks
 {
+    private const BATCH_SIZE = 1000;
+
     public function handle(CarbonInterface $cutoff): int
     {
         $totalDeleted = 0;
@@ -16,11 +18,19 @@ class PruneOldMonitorChecks
         do {
             $deleted = MonitorCheck::query()
                 ->where('checked_at', '<', $cutoff)
-                ->limit(1000)
+                ->limit(self::BATCH_SIZE)
                 ->delete();
 
             $totalDeleted += $deleted;
-        } while ($deleted === 1000);
+
+            if ($deleted === self::BATCH_SIZE) {
+                // Each deleted row costs two foreign key checks against
+                // incidents. On the first run after months of retention that is
+                // millions of rows, so yield briefly between batches instead of
+                // holding MySQL flat out for the whole prune.
+                usleep(50_000);
+            }
+        } while ($deleted === self::BATCH_SIZE);
 
         return $totalDeleted;
     }
