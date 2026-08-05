@@ -3,21 +3,23 @@
 use App\Enums\MonitorStatus;
 use App\Enums\StatusPageHealth;
 use App\Models\Monitor;
+use App\Models\StatusPage;
+use App\Models\User;
 use App\Services\StatusPages\StatusPageHealthService;
-use Illuminate\Database\Eloquent\Collection;
 
 test('status page health reflects the most severe monitor state', function (
     array $monitorStatuses,
     StatusPageHealth $expectedHealth,
 ) {
-    $monitors = new Collection(
-        array_map(
-            fn (MonitorStatus $status): Monitor => new Monitor(['status' => $status]),
-            $monitorStatuses,
-        ),
-    );
+    $user = User::factory()->create();
+    $statusPage = StatusPage::factory()->for($user)->create();
 
-    expect((new StatusPageHealthService)->determine($monitors))
+    foreach ($monitorStatuses as $position => $status) {
+        $monitor = Monitor::factory()->for($user)->create(['status' => $status]);
+        $statusPage->monitors()->attach($monitor, ['position' => $position]);
+    }
+
+    expect((new StatusPageHealthService)->determineForStatusPage($statusPage->fresh()))
         ->toBe($expectedHealth);
 })->with([
     'all operational' => [
@@ -34,6 +36,10 @@ test('status page health reflects the most severe monitor state', function (
     ],
     'pending monitoring' => [
         [MonitorStatus::Up, MonitorStatus::Pending],
+        StatusPageHealth::Monitoring,
+    ],
+    'paused monitoring' => [
+        [MonitorStatus::Up, MonitorStatus::Paused],
         StatusPageHealth::Monitoring,
     ],
     'no monitors' => [
