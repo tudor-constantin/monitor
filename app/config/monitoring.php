@@ -11,6 +11,7 @@ return [
     'max_timeout_seconds' => (int) env('MONITOR_MAX_TIMEOUT_SECONDS', 60),
     'monitor_creation_limit_per_minute' => (int) env('MONITOR_CREATION_LIMIT_PER_MINUTE', 10),
     'public_subscription_limit_per_hour' => (int) env('PUBLIC_SUBSCRIPTION_LIMIT_PER_HOUR', 5),
+    'public_subscription_limit_per_email_per_hour' => (int) env('PUBLIC_SUBSCRIPTION_EMAIL_LIMIT_PER_HOUR', 3),
 
     /*
      * How long a status page's daily uptime history may be served from cache.
