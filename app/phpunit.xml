@@ -18,26 +18,73 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="CACHE_LIMITER_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="mysql"/>
+        <!--
+            Every value that decides *what* the suite touches is pinned twice, and
+            both halves are required.
+
+            <env> without force="true" is only applied when the variable is absent
+            from the process environment, so a deployed container (which exports
+            DB_DATABASE, MAIL_MAILER, QUEUE_CONNECTION, ...) would win and
+            RefreshDatabase would drop the real schema.
+
+            force="true" alone is still not enough: it writes putenv() and $_ENV but
+            never $_SERVER, and with variables_order=EGPCS the environment is also
+            published to $_SERVER — which Dotenv's ServerConstAdapter reads *first*.
+            The matching <server> entries below are what actually win, because
+            PHPUnit merges those into $_SERVER unconditionally.
+
+            Connection *locations* and credentials are deliberately left overridable
+            so the suite can be pointed at a local, Docker, or CI service without
+            editing this file. The database *name* is not: see Tests\TestCase.
+        -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_URL" value="http://localhost" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="CACHE_LIMITER_STORE" value="array" force="true"/>
+        <env name="DB_CONNECTION" value="mysql" force="true"/>
+        <env name="DB_DATABASE" value="monitor_testing" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3306"/>
-        <env name="DB_DATABASE" value="monitor_testing"/>
         <env name="DB_USERNAME" value="monitor"/>
         <env name="DB_PASSWORD" value="monitor"/>
-        <env name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="redis"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="redis" force="true"/>
         <env name="REDIS_HOST" value="127.0.0.1"/>
         <env name="REDIS_PORT" value="6379"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Isolate every Redis key so a suite pointed at a live Redis can never
+             enqueue into, or evict from, the queues Horizon is working. -->
+        <env name="REDIS_DB" value="15" force="true"/>
+        <env name="REDIS_CACHE_DB" value="15" force="true"/>
+        <env name="REDIS_PREFIX" value="monitor-testing-database-" force="true"/>
+        <env name="HORIZON_PREFIX" value="monitor_testing_horizon:" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="PULSE_ENABLED" value="false" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
+        <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
+
+        <server name="APP_ENV" value="testing"/>
+        <server name="APP_URL" value="http://localhost"/>
+        <server name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <server name="BCRYPT_ROUNDS" value="4"/>
+        <server name="BROADCAST_CONNECTION" value="null"/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="CACHE_LIMITER_STORE" value="array"/>
+        <server name="DB_CONNECTION" value="mysql"/>
+        <server name="DB_DATABASE" value="monitor_testing"/>
+        <server name="DB_URL" value=""/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="QUEUE_CONNECTION" value="redis"/>
+        <server name="REDIS_DB" value="15"/>
+        <server name="REDIS_CACHE_DB" value="15"/>
+        <server name="REDIS_PREFIX" value="monitor-testing-database-"/>
+        <server name="HORIZON_PREFIX" value="monitor_testing_horizon:"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="PULSE_ENABLED" value="false"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
+        <server name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>

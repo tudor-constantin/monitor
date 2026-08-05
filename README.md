@@ -238,7 +238,22 @@ Never commit `.env`, `APP_KEY`, or production credentials. Do not use `docker co
 
 ## Quality checks
 
-GitHub Actions runs the automated test suite with isolated MySQL and Redis services. Manual test runs require a disposable `monitor_testing` database matching `app/phpunit.xml`; never point the test suite at production.
+GitHub Actions runs the automated test suite with isolated MySQL and Redis services.
+
+The suite is destructive: `RefreshDatabase` drops every table. Two independent
+guards keep it away from real data, and both matter:
+
+- `app/phpunit.xml` pins `DB_DATABASE`, `MAIL_MAILER`, the queue, and the Redis
+  keyspace with `force="true"` **and** matching `<server>` entries. The `<server>`
+  half is the one that actually wins, because `variables_order` publishes the
+  environment to `$_SERVER` and Dotenv reads that before `$_ENV` or `getenv()`.
+- `Tests\TestCase` refuses to run against any database whose name does not end in
+  `_testing`.
+
+So the suite always targets `monitor_testing`. Create that database once before
+the first manual run; connection host and credentials remain overridable via the
+environment for local, Docker, or CI use.
+
 
 From an environment with PHP 8.4, MySQL, Redis, and Node.js available:
 
