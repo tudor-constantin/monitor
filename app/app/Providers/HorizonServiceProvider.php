@@ -17,6 +17,13 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     {
         parent::boot();
 
+        // The parent registers `Gate::check('viewHorizon') || app()->environment('local')`,
+        // which leaves the dashboard — including retrying and deleting jobs —
+        // open to anyone who can reach the app in local. Re-register without
+        // the environment escape hatch so the allow-list is the only way in,
+        // in every environment.
+        Horizon::auth(fn ($request): bool => Gate::check('viewHorizon', [$request->user()]));
+
         // Horizon::routeSmsNotificationsTo('15556667777');
         // Horizon::routeMailNotificationsTo('example@example.com');
         // Horizon::routeSlackNotificationsTo('slack-webhook-url', '#channel');
