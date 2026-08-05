@@ -44,6 +44,13 @@ class RequestStatusPageSubscription
             }
         }
 
+        // Behind a reverse proxy with TRUSTED_PROXIES unset every visitor shares
+        // the proxy's address, which collapses the per-IP bucket into a single
+        // global one. The per-email limit below is what actually stops an
+        // unsolicited confirmation from being mailed at someone repeatedly, and
+        // it holds regardless of how the client address resolves.
+        $this->enforceEmailLimit($email);
+
         $rateLimitKey = sprintf(
             'status-page-subscription:%d:%s',
             $statusPage->id,
@@ -94,5 +101,23 @@ class RequestStatusPageSubscription
         );
 
         return $subscription;
+    }
+
+    /**
+     * Cap how often a confirmation may be mailed to one address, across every
+     * status page and every source address.
+     */
+    private function enforceEmailLimit(string $email): void
+    {
+        $limit = max(1, (int) config('monitoring.public_subscription_limit_per_email_per_hour', 3));
+        $key = 'status-page-subscription-email:'.hash('sha256', $email);
+
+        if (RateLimiter::tooManyAttempts($key, $limit)) {
+            throw ValidationException::withMessages([
+                'email' => __('Too many subscription requests for this address. Please try again later.'),
+            ]);
+        }
+
+        RateLimiter::hit($key, 3600);
     }
 }

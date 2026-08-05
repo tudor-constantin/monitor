@@ -21,7 +21,13 @@
                     <flux:sidebar.item icon="rectangle-stack" :href="route('status-pages.index')" :current="request()->routeIs('status-pages.*')" wire:navigate>
                         {{ __('Status pages') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="bell" :href="route('notifications.edit')" :current="request()->routeIs('notifications.edit')" wire:navigate>
+                    <flux:sidebar.item
+                        icon="bell"
+                        :href="route('notifications.index')"
+                        :current="request()->routeIs('notifications.*')"
+                        :badge="auth()->user()->unreadNotifications()->count() ?: null"
+                        wire:navigate
+                    >
                         {{ __('Notifications') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>

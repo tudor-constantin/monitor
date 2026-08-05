@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Incident;
+use App\Models\Monitor;
+use App\Models\User;
+use App\Notifications\MonitorDownNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +48,17 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Store a delivered "monitor down" in-app notification for $user.
+ *
+ * The notification is ShouldQueue, so notify() would only enqueue it and no row
+ * would ever reach the notifications table; this sends it inline. Shared here
+ * because both the inbox and the pruning suites need a stored notification.
+ */
+function storeDownNotification(User $user, ?Monitor $monitor = null): void
 {
-    // ..
+    $monitor ??= Monitor::factory()->for($user)->create(['name' => 'Acme website']);
+    $incident = Incident::factory()->for($monitor)->create();
+
+    $user->notifyNow(new MonitorDownNotification($incident));
 }

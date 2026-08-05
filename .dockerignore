@@ -1,7 +1,11 @@
 .git
+.github
 .agents
 .codex
+.atl
+.codegraph
 .env
+README.md
 app/.env
 app/.env.*
 app/node_modules
@@ -13,3 +17,17 @@ app/storage/logs/*
 app/storage/framework/cache/*
 app/storage/framework/sessions/*
 app/storage/framework/views/*
+
+# Development-only tooling. None of it is reachable through nginx (it all lives
+# outside public/), but it has no business in a runtime image either.
+app/tests
+app/phpunit.xml
+app/phpstan.neon
+app/pint.json
+app/AGENTS.md
+app/boost.json
+app/.agents
+app/.codex
+app/.editorconfig
+app/.gitattributes
+app/.npmrc

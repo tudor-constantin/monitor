@@ -26,7 +26,11 @@ class DispatchDueMonitorChecks
                 ->orderBy('next_check_at')
                 ->orderBy('id')
                 ->limit(self::BATCH_SIZE)
-                ->get(['id', 'interval_seconds', 'next_check_at']);
+                // Every column CheckMonitor reads at dispatch time must be here.
+                // A missing attribute reads as null rather than raising, so an
+                // omission turns into a silently wrong queue timeout instead of
+                // an error. See CheckMonitor::__construct.
+                ->get(['id', 'interval_seconds', 'timeout_seconds', 'next_check_at']);
 
             foreach ($dueMonitors as $monitor) {
                 if ($this->reserveMonitorCheck->handle($monitor, now())) {

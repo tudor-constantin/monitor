@@ -213,6 +213,35 @@ The `app` container supervises:
 
 Horizon processes website checks and notifications. Scheduler dispatches checks according to each website's configured interval.
 
+Scheduled maintenance:
+
+| Command | When | Purpose |
+|---|---|---|
+| `monitors:dispatch-due` | every minute | Reserve due websites and queue their checks |
+| `horizon:snapshot` | every 5 minutes | Record queue metrics for the Horizon dashboard |
+| `monitors:report-stale` | hourly | Warn when an active website stopped producing checks |
+| `monitors:roll-up-checks` | 01:30 | Aggregate recent checks into daily uptime stats |
+| `monitors:prune-checks` | 02:00 | Delete raw checks past `MONITOR_CHECK_RETENTION_DAYS` |
+| `model:prune` | 02:30 | Delete unconfirmed subscription requests |
+| `notifications:prune` | 02:45 | Delete read in-app notifications past their retention |
+| `monitors:dispatch-favicon-refresh` | weekly | Re-fetch every website's favicon |
+
+The roll-up runs before the pruner on purpose: it is what preserves a day's
+uptime once the raw checks behind it are deleted, which is what lets status page
+history outlive `MONITOR_CHECK_RETENTION_DAYS`.
+
+### Checks and redirects
+
+A check follows up to five redirects. Every hop is revalidated independently —
+scheme, port, credentials, and the resolved IP address — so a public URL cannot
+redirect a check into a private network. The expected status code is compared
+against the *final* response, which is why a site that moves apex to www, or HTTP
+to HTTPS, is reported on its real status rather than on its redirect.
+
+When a hostname resolves to several addresses, they are tried in turn (IPv4
+first) until one answers, so a single unreachable address on a multi-homed host
+does not raise a false outage.
+
 ## Updating production
 
 Pull the new release and run:
@@ -222,6 +251,14 @@ docker compose build --pull app
 docker compose up -d
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan horizon:status
+```
+
+After upgrading to a release that introduces daily uptime stats, build them once
+so status page history covers your existing data instead of waiting for the first
+nightly run:
+
+```bash
+docker compose exec app php artisan monitors:roll-up-checks --backfill
 ```
 
 ## Controlled dependency updates
@@ -238,7 +275,21 @@ Never commit `.env`, `APP_KEY`, or production credentials. Do not use `docker co
 
 ## Quality checks
 
-GitHub Actions runs the automated test suite with isolated MySQL and Redis services. Manual test runs require a disposable `monitor_testing` database matching `app/phpunit.xml`; never point the test suite at production.
+GitHub Actions runs the automated test suite with isolated MySQL and Redis services.
+
+The suite is destructive: `RefreshDatabase` drops every table. Two independent
+guards keep it away from real data, and both matter:
+
+- `app/phpunit.xml` pins `DB_DATABASE`, `MAIL_MAILER`, the queue, and the Redis
+  keyspace with `force="true"` **and** matching `<server>` entries. The `<server>`
+  half is the one that actually wins, because `variables_order` publishes the
+  environment to `$_SERVER` and Dotenv reads that before `$_ENV` or `getenv()`.
+- `Tests\TestCase` refuses to run against any database whose name does not end in
+  `_testing`.
+
+So the suite always targets `monitor_testing`. Create that database once before
+the first manual run; connection host and credentials remain overridable via the
+environment for local, Docker, or CI use.
 
 From an environment with PHP 8.4, MySQL, Redis, and Node.js available:
 

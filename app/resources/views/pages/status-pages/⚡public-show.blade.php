@@ -59,14 +59,24 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
     public function mount(StatusPage $statusPage): void
     {
         $this->statusPage = $statusPage;
+        $this->historyDays = $this->clampHistoryDays($this->historyDays);
         $this->ensureVisible();
     }
 
     public function hydrate(): void
     {
         $this->statusPage->refresh();
+        // #[Url] repopulates this from the query string on every request, so an
+        // out-of-range ?history= must be clamped here too or the range buttons
+        // and the chart width silently disagree with the data being rendered.
+        $this->historyDays = $this->clampHistoryDays($this->historyDays);
 
         $this->ensureVisible();
+    }
+
+    private function clampHistoryDays(int $days): int
+    {
+        return in_array($days, [30, 90], true) ? $days : 30;
     }
 
     /**
@@ -130,7 +140,7 @@ new #[Layout('layouts.public'), Title('Service status')] class extends Component
 
     public function setHistoryDays(int $days): void
     {
-        $this->historyDays = in_array($days, [30, 90], true) ? $days : 30;
+        $this->historyDays = $this->clampHistoryDays($days);
     }
 
     public function updatedServiceSearch(): void

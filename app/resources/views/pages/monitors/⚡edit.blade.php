@@ -57,7 +57,7 @@ new #[Title('Edit website')] class extends Component
             'url' => ['required', 'string', 'max:2048', 'url:http,https', app(SafePublicUrl::class)],
             'expected_status_code' => ['required', 'integer', 'between:100,599'],
             'interval_seconds' => ['required', 'integer', Rule::in([60, 300, 600, 900, 1800, 3600])],
-            'timeout_seconds' => ['required', 'integer', 'between:1,60'],
+            'timeout_seconds' => ['required', 'integer', 'min:1', 'max:'.config('monitoring.max_timeout_seconds', 60)],
         ];
     }
 };

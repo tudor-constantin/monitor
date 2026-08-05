@@ -9,7 +9,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::redirect('settings/notifications', '/notifications');
+    Route::livewire('settings/notifications', 'pages::settings.notifications')
+        ->name('notifications.edit');
 
     Route::livewire('settings/security', 'pages::settings.security')
         ->middleware([

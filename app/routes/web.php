@@ -6,7 +6,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
+// Anonymous, and the only route that renders the daily uptime history, so it is
+// throttled against scripted hammering. Livewire's own polling posts to
+// /livewire/update rather than here; the history cache is what bounds that cost.
 Route::livewire('status/{statusPage:slug}', 'pages::status-pages.public-show')
+    ->middleware('throttle:120,1')
     ->name('status-pages.public');
 
 Route::get(
@@ -25,7 +29,7 @@ Route::get(
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
-    Route::livewire('notifications', 'pages::settings.notifications')->name('notifications.edit');
+    Route::livewire('notifications', 'pages::notifications.index')->name('notifications.index');
 
     Route::livewire('websites', 'pages::monitors.index')->name('monitors.index');
     Route::livewire('websites/create', 'pages::monitors.create')->name('monitors.create');
