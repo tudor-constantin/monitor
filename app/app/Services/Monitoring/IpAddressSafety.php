@@ -10,14 +10,13 @@ class IpAddressSafety
 {
     private const IPV6_GLOBAL_UNICAST_RANGE = '2000::/3';
 
-    private const NON_UNICAST_RANGES = [
-        '192.88.99.0/24',
-        '224.0.0.0/4',
-        '64:ff9b:1::/48',
-        '100:0:0:1::/64',
-        '3fff::/20',
-        '5f00::/16',
-        'ff00::/8',
+    private const IPV4_NON_UNICAST_RANGES = [
+        '192.88.99.0/24', // deprecated 6to4 relay anycast
+        '224.0.0.0/4',    // multicast
+    ];
+
+    private const IPV6_NON_GLOBAL_UNICAST_RANGES = [
+        '3fff::/20', // IETF reserved for future use, carved out of the 2000::/3 global unicast block
     ];
 
     public function isPublic(string $ipAddress): bool
@@ -28,12 +27,17 @@ class IpAddressSafety
             FILTER_FLAG_GLOBAL_RANGE,
         ) !== false;
 
-        $isIpv6 = filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-        $isExpectedIpv6GlobalUnicast = ! $isIpv6
-            || IpUtils::checkIp($ipAddress, self::IPV6_GLOBAL_UNICAST_RANGE);
+        if (! $isGlobal) {
+            return false;
+        }
 
-        return $isGlobal
-            && $isExpectedIpv6GlobalUnicast
-            && ! IpUtils::checkIp($ipAddress, self::NON_UNICAST_RANGES);
+        $isIpv6 = filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+        if ($isIpv6) {
+            return IpUtils::checkIp($ipAddress, self::IPV6_GLOBAL_UNICAST_RANGE)
+                && ! IpUtils::checkIp($ipAddress, self::IPV6_NON_GLOBAL_UNICAST_RANGES);
+        }
+
+        return ! IpUtils::checkIp($ipAddress, self::IPV4_NON_UNICAST_RANGES);
     }
 }
