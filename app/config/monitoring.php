@@ -17,4 +17,10 @@ return [
      * Set to 0 to always recompute (only sensible for very small installs).
      */
     'status_page_history_cache_seconds' => (int) env('STATUS_PAGE_HISTORY_CACHE_SECONDS', 300),
+
+    /*
+     * A monitor whose last check is older than its interval times this factor is
+     * reported as stale, which surfaces checks that were dropped rather than run.
+     */
+    'stale_check_interval_multiplier' => (int) env('MONITOR_STALE_INTERVAL_MULTIPLIER', 3),
 ];

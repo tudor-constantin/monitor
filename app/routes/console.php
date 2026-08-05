@@ -23,3 +23,8 @@ Schedule::command('model:prune')
     ->dailyAt('02:30')
     ->onOneServer()
     ->withoutOverlapping();
+
+Schedule::command('monitors:report-stale')
+    ->hourly()
+    ->onOneServer()
+    ->withoutOverlapping();

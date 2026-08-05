@@ -213,6 +213,17 @@ The `app` container supervises:
 
 Horizon processes website checks and notifications. Scheduler dispatches checks according to each website's configured interval.
 
+Scheduled maintenance:
+
+| Command | When | Purpose |
+|---|---|---|
+| `monitors:dispatch-due` | every minute | Reserve due websites and queue their checks |
+| `horizon:snapshot` | every 5 minutes | Record queue metrics for the Horizon dashboard |
+| `monitors:report-stale` | hourly | Warn when an active website stopped producing checks |
+| `monitors:prune-checks` | 02:00 | Delete raw checks past `MONITOR_CHECK_RETENTION_DAYS` |
+| `model:prune` | 02:30 | Delete unconfirmed subscription requests |
+| `monitors:dispatch-favicon-refresh` | weekly | Re-fetch every website's favicon |
+
 ### Checks and redirects
 
 A check follows up to five redirects. Every hop is revalidated independently —
