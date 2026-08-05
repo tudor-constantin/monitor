@@ -33,7 +33,8 @@ return [
     'daily_stat_retention_days' => (int) env('MONITOR_DAILY_STAT_RETENTION_DAYS', 730),
 
     /*
-     * How long read in-app notifications are kept before model:prune removes them.
+     * How long read in-app notifications are kept before notifications:prune
+     * removes them. Unread ones are never pruned.
      */
     'notification_retention_days' => (int) env('MONITOR_NOTIFICATION_RETENTION_DAYS', 30),
 ];
