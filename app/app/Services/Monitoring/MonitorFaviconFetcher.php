@@ -1,15 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Monitoring;
 
-use App\Contracts\DnsResolver;
+use App\Exceptions\Monitoring\ResponseTooLargeException;
 use App\Models\Monitor;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 
 class MonitorFaviconFetcher
@@ -22,17 +23,13 @@ class MonitorFaviconFetcher
 
     private const MAX_DISCOVERED_ICONS = 5;
 
-    /** @var array<string, list<string>> */
-    private array $resolvedAddressCache = [];
-
     public function __construct(
-        private DnsResolver $dnsResolver,
-        private IpAddressSafety $ipAddressSafety,
+        private readonly SafeHttpFetcher $safeHttpFetcher,
     ) {}
 
     public function fetch(Monitor $monitor): ?string
     {
-        $this->resolvedAddressCache = [];
+        $this->safeHttpFetcher->resetResolvedAddressCache();
         $origin = $this->originFor($monitor->url);
 
         if ($origin === null) {
@@ -151,38 +148,24 @@ class MonitorFaviconFetcher
                 return null;
             }
 
-            try {
-                $response = Http::connectTimeout(3)
-                    ->timeout(8)
-                    ->withUserAgent('Monitor/1.0')
-                    ->accept($acceptImage
-                        ? 'image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/vnd.microsoft.icon'
-                        : 'text/html,application/xhtml+xml')
-                    ->withoutRedirecting()
-                    ->withOptions([
-                        'curl' => [
-                            CURLOPT_RESOLVE => [$requestDetails['curl_resolve']],
-                        ],
-                        'on_headers' => function (ResponseInterface $response) use ($maximumBytes): void {
-                            $contentLength = $response->getHeaderLine('Content-Length');
+            [$host, $port, $resolvedAddress] = $requestDetails;
 
-                            if ($contentLength !== '' && (int) $contentLength > $maximumBytes) {
-                                throw new RuntimeException('Favicon response exceeded the maximum size.');
-                            }
-                        },
-                        'progress' => function (
-                            float $downloadTotal,
-                            float $downloadedBytes,
-                            float $uploadTotal,
-                            float $uploadedBytes,
-                        ) use ($maximumBytes): void {
-                            if ($downloadTotal > $maximumBytes || $downloadedBytes > $maximumBytes) {
-                                throw new RuntimeException('Favicon response exceeded the maximum size.');
-                            }
-                        },
-                    ])
-                    ->get($url);
-            } catch (ConnectionException|RuntimeException) {
+            try {
+                $response = $this->safeHttpFetcher->send(
+                    Http::connectTimeout(3)
+                        ->timeout(8)
+                        ->withUserAgent('Monitor/1.0')
+                        ->accept($acceptImage
+                            ? 'image/png,image/jpeg,image/gif,image/webp,image/x-icon,image/vnd.microsoft.icon'
+                            : 'text/html,application/xhtml+xml'),
+                    'GET',
+                    $url,
+                    $host,
+                    $port,
+                    $resolvedAddress,
+                    $maximumBytes,
+                );
+            } catch (ConnectionException|ResponseTooLargeException) {
                 return null;
             }
 
@@ -210,7 +193,7 @@ class MonitorFaviconFetcher
     }
 
     /**
-     * @return array{curl_resolve: string}|null
+     * @return array{0: string, 1: int, 2: string}|null Host, port, and the resolved, validated public address.
      */
     private function safeRequestDetails(string $url): ?array
     {
@@ -232,22 +215,13 @@ class MonitorFaviconFetcher
             return null;
         }
 
-        $resolvedAddresses = $this->resolvedAddressCache[$host]
-            ??= $this->dnsResolver->resolve($host);
+        $resolvedAddress = $this->safeHttpFetcher->resolveSafeAddress($host);
 
-        if ($resolvedAddresses === []
-            || collect($resolvedAddresses)->contains(
-                fn (string $address): bool => ! $this->ipAddressSafety->isPublic($address),
-            )) {
+        if ($resolvedAddress === null) {
             return null;
         }
 
-        $resolvedAddress = $resolvedAddresses[0];
-        $curlAddress = str_contains($resolvedAddress, ':') ? "[{$resolvedAddress}]" : $resolvedAddress;
-
-        return [
-            'curl_resolve' => "{$host}:{$port}:{$curlAddress}",
-        ];
+        return [$host, $port, $resolvedAddress];
     }
 
     private function originFor(string $url): ?string
