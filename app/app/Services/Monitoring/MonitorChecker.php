@@ -53,7 +53,7 @@ class MonitorChecker
         // check can never outlive the job timeout no matter how many hops it
         // takes. hrtime() measures elapsed time, microtime() bounds it.
         $startedAt = hrtime(true);
-        $deadline = microtime(true) + $monitor->timeout_seconds;
+        $deadline = microtime(true) + $this->budgetSeconds($monitor);
 
         try {
             $result = $this->safeHttpFetcher->sendFollowingRedirects(
@@ -140,6 +140,22 @@ class MonitorChecker
                 : null,
             checkedAt: $checkedAt,
         );
+    }
+
+    /**
+     * The HTTP budget for this check, never above the configured ceiling.
+     *
+     * CheckMonitor sizes the queue timeout from that same ceiling whenever it
+     * cannot read the monitor's own value. Clamping here makes "the queue
+     * timeout always outlasts the request it supervises" hold structurally,
+     * including for monitors stored before the ceiling was lowered, rather
+     * than depending on the two numbers happening to agree.
+     */
+    private function budgetSeconds(Monitor $monitor): int
+    {
+        $ceiling = max(1, (int) config('monitoring.max_timeout_seconds', 60));
+
+        return max(1, min((int) $monitor->timeout_seconds, $ceiling));
     }
 
     private function unexpectedStatusMessage(

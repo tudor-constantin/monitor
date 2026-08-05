@@ -35,7 +35,7 @@
         :label="__('Timeout (seconds)')"
         type="number"
         min="1"
-        max="60"
+        :max="config('monitoring.max_timeout_seconds', 60)"
         required
     />
 

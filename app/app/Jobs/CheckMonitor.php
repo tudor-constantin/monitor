@@ -29,15 +29,40 @@ class CheckMonitor implements ShouldBeUnique, ShouldQueue
 
     public int $timeout = 60;
 
+    /**
+     * Seconds added on top of the HTTP budget for DNS resolution and for
+     * persisting the result, so a monitor configured at the ceiling is not
+     * killed mid-check.
+     */
+    private const OVERHEAD_SECONDS = 15;
+
     public function __construct(public Monitor $monitor)
     {
         $this->onConnection('redis');
         $this->onQueue('checks');
 
-        // The HTTP client itself is bounded by $monitor->timeout_seconds (max 60);
-        // add a buffer for DNS resolution and result persistence so the job isn't
-        // killed mid-check for monitors configured near that ceiling.
-        $this->timeout = $monitor->timeout_seconds + 15;
+        $this->timeout = $this->httpBudgetSeconds($monitor) + self::OVERHEAD_SECONDS;
+    }
+
+    /**
+     * The HTTP budget handle() will actually give this check.
+     *
+     * The queue timeout is a scalar captured at dispatch time, while handle()
+     * runs against a fully rehydrated model. If the model we were handed does
+     * not carry timeout_seconds — the scheduler loads due monitors with a
+     * partial column list — reading it would yield null, null + overhead would
+     * silently produce a 15 second timeout, and the worker would kill checks
+     * mid-flight without ever persisting a result. Assume the configured
+     * ceiling instead: an over-long queue timeout costs a worker slot, an
+     * under-long one loses monitoring data without a trace.
+     */
+    private function httpBudgetSeconds(Monitor $monitor): int
+    {
+        if (! array_key_exists('timeout_seconds', $monitor->getAttributes())) {
+            return (int) config('monitoring.max_timeout_seconds', 60);
+        }
+
+        return (int) $monitor->timeout_seconds;
     }
 
     public function handle(MonitorChecker $monitorChecker, PersistMonitorCheck $persistMonitorCheck): void
