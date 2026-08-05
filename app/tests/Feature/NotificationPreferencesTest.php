@@ -25,7 +25,7 @@ test('a verified user can update notification preferences', function () {
         ->database_notifications_enabled->toBeFalse();
 });
 
-test('notification preferences are promoted to the main workspace navigation', function () {
+test('notification preferences live in settings and link to the inbox', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -34,9 +34,18 @@ test('notification preferences are promoted to the main workspace navigation', f
         ->assertSee('Save preferences')
         ->assertSee('Notifications');
 
+    expect(route('notifications.edit', absolute: false))->toBe('/settings/notifications');
+});
+
+test('the workspace notifications entry opens the inbox rather than the preferences', function () {
+    $user = User::factory()->create();
+
+    expect(route('notifications.index', absolute: false))->toBe('/notifications');
+
     $this->actingAs($user)
-        ->get('/settings/notifications')
-        ->assertRedirect('/notifications');
+        ->get(route('notifications.index'))
+        ->assertOk()
+        ->assertSee('No notifications yet');
 });
 
 test('unverified users cannot manage notification preferences', function () {

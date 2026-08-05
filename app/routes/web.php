@@ -29,7 +29,7 @@ Route::get(
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::dashboard')->name('dashboard');
-    Route::livewire('notifications', 'pages::settings.notifications')->name('notifications.edit');
+    Route::livewire('notifications', 'pages::notifications.index')->name('notifications.index');
 
     Route::livewire('websites', 'pages::monitors.index')->name('monitors.index');
     Route::livewire('websites/create', 'pages::monitors.create')->name('monitors.create');

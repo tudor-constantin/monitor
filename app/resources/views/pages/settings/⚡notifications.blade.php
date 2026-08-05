@@ -38,13 +38,11 @@ new #[Title('Notification settings')] class extends Component {
     }
 }; ?>
 
-<section class="w-full max-w-3xl space-y-6">
-    <div>
-        <flux:heading size="xl">{{ __('Notifications') }}</flux:heading>
-        <flux:subheading>{{ __('Choose how Monitor alerts you when one of your websites goes down or recovers.') }}</flux:subheading>
-    </div>
-
-    <flux:card>
+<section class="w-full">
+    <x-pages::settings.layout
+        :heading="__('Notifications')"
+        :subheading="__('Choose how Monitor alerts you when one of your websites goes down or recovers.')"
+    >
         <form wire:submit="save" class="space-y-6">
             <flux:fieldset>
                 <flux:legend>{{ __('Delivery channels') }}</flux:legend>
@@ -66,9 +64,15 @@ new #[Title('Notification settings')] class extends Component {
                 </div>
             </flux:fieldset>
 
-            <flux:button variant="primary" type="submit" data-test="save-notification-preferences">
-                {{ __('Save preferences') }}
-            </flux:button>
+            <div class="flex flex-wrap items-center gap-3">
+                <flux:button variant="primary" type="submit" data-test="save-notification-preferences">
+                    {{ __('Save preferences') }}
+                </flux:button>
+
+                <flux:link :href="route('notifications.index')" wire:navigate>
+                    {{ __('Open notifications') }}
+                </flux:link>
+            </div>
         </form>
-    </flux:card>
+    </x-pages::settings.layout>
 </section>
