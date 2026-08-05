@@ -30,4 +30,9 @@ return [
      * monitor per day, so the default keeps two years for very little space.
      */
     'daily_stat_retention_days' => (int) env('MONITOR_DAILY_STAT_RETENTION_DAYS', 730),
+
+    /*
+     * How long read in-app notifications are kept before model:prune removes them.
+     */
+    'notification_retention_days' => (int) env('MONITOR_NOTIFICATION_RETENTION_DAYS', 30),
 ];

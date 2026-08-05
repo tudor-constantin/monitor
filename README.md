@@ -223,6 +223,7 @@ Scheduled maintenance:
 | `monitors:roll-up-checks` | 01:30 | Aggregate recent checks into daily uptime stats |
 | `monitors:prune-checks` | 02:00 | Delete raw checks past `MONITOR_CHECK_RETENTION_DAYS` |
 | `model:prune` | 02:30 | Delete unconfirmed subscription requests |
+| `notifications:prune` | 02:45 | Delete read in-app notifications past their retention |
 | `monitors:dispatch-favicon-refresh` | weekly | Re-fetch every website's favicon |
 
 The roll-up runs before the pruner on purpose: it is what preserves a day's
