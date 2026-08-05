@@ -23,6 +23,8 @@ class MonitorFaviconFetcher
 
     private const MAX_DISCOVERED_ICONS = 5;
 
+    private const MAX_TOTAL_SECONDS = 20;
+
     public function __construct(
         private readonly SafeHttpFetcher $safeHttpFetcher,
     ) {}
@@ -36,11 +38,13 @@ class MonitorFaviconFetcher
             return $this->recordAttempt($monitor);
         }
 
-        $candidates = $this->discoverIconUrls($origin);
+        $deadline = microtime(true) + self::MAX_TOTAL_SECONDS;
+
+        $candidates = $this->discoverIconUrls($origin, $deadline);
         $candidates[] = "{$origin}/favicon.ico";
 
         foreach (array_values(array_unique($candidates)) as $faviconUrl) {
-            $response = $this->request($faviconUrl, self::MAX_IMAGE_BYTES, true);
+            $response = $this->request($faviconUrl, self::MAX_IMAGE_BYTES, true, deadline: $deadline);
 
             if ($response === null || ! $response->successful()) {
                 continue;
@@ -60,10 +64,10 @@ class MonitorFaviconFetcher
     /**
      * @return list<string>
      */
-    private function discoverIconUrls(string $origin): array
+    private function discoverIconUrls(string $origin, float $deadline): array
     {
         $documentUrl = "{$origin}/";
-        $response = $this->request($documentUrl, self::MAX_DOCUMENT_BYTES, false, $documentUrl);
+        $response = $this->request($documentUrl, self::MAX_DOCUMENT_BYTES, false, $documentUrl, $deadline);
 
         if ($response === null || ! $response->successful()) {
             return [];
@@ -140,8 +144,13 @@ class MonitorFaviconFetcher
         int $maximumBytes,
         bool $acceptImage,
         ?string &$effectiveUrl = null,
+        float $deadline = PHP_FLOAT_MAX,
     ): ?Response {
         for ($redirects = 0; $redirects <= self::MAX_REDIRECTS; $redirects++) {
+            if (microtime(true) >= $deadline) {
+                return null;
+            }
+
             $requestDetails = $this->safeRequestDetails($url);
 
             if ($requestDetails === null) {

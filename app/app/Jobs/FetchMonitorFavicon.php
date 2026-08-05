@@ -23,7 +23,7 @@ class FetchMonitorFavicon implements ShouldBeUnique, ShouldQueue
     /** @var list<int> */
     public array $backoff = [5, 30, 120];
 
-    public int $timeout = 15;
+    public int $timeout = 30;
 
     public function __construct(public Monitor $monitor)
     {

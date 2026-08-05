@@ -32,6 +32,11 @@ class CheckMonitor implements ShouldBeUnique, ShouldQueue
     {
         $this->onConnection('redis');
         $this->onQueue('checks');
+
+        // The HTTP client itself is bounded by $monitor->timeout_seconds (max 60);
+        // add a buffer for DNS resolution and result persistence so the job isn't
+        // killed mid-check for monitors configured near that ceiling.
+        $this->timeout = $monitor->timeout_seconds + 15;
     }
 
     public function handle(MonitorChecker $monitorChecker, PersistMonitorCheck $persistMonitorCheck): void
