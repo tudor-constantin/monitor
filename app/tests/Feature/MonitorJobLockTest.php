@@ -27,3 +27,20 @@ test('the unique lock on a favicon fetch also expires', function () {
 
     expect($job->uniqueFor())->toBeGreaterThanOrEqual($job->tries * $job->timeout);
 });
+
+test('the unique lock outlives a worker crash and the queue visibility timeout', function () {
+    // A worker killed mid-job does not release the Redis queue reservation:
+    // the job only becomes visible again after the connection's retry_after.
+    // If the unique lock expires before that, the scheduler can dispatch a
+    // duplicate check for the same monitor while the original is still
+    // reserved for retry.
+    config(['queue.connections.redis.retry_after' => 90]);
+
+    $monitor = Monitor::factory()->create(['timeout_seconds' => 10]);
+    $job = new CheckMonitor($monitor);
+
+    $retryAfter = (int) config('queue.connections.redis.retry_after');
+    $worstCaseHoldTime = $job->tries * ($job->timeout + $retryAfter);
+
+    expect($job->uniqueFor())->toBeGreaterThanOrEqual($worstCaseHoldTime);
+});

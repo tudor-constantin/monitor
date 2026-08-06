@@ -153,6 +153,31 @@ test('a redirect rewrites the method to GET, except for 307 and 308', function (
     '308 preserves the method' => [308, 'POST'],
 ]);
 
+test('a monitor configured with the minimum one-second timeout is not aborted before it is sent', function () {
+    // A deadline set to "now + 1 second" leaves microtime(true) a hair under
+    // 1.0 by the time it is re-read even a few microseconds later, so a `< 1`
+    // guard rejects every one-second monitor before DNS resolution even
+    // starts. The sleep makes that elapsed time deterministic instead of
+    // depending on how fast the test happens to run.
+    $dnsResolver = Mockery::mock(DnsResolver::class);
+    $dnsResolver->shouldReceive('resolve')->once()->andReturn(['93.184.216.34']);
+
+    $handler = static fn (): PromiseInterface => Create::promiseFor(new PsrResponse(200));
+    $deadline = microtime(true) + 1;
+    usleep(2_000);
+
+    $result = safeHttpFetcher($dnsResolver)->sendFollowingRedirects(
+        fn (int $timeout): PendingRequest => pendingHttpRequest($handler),
+        'GET',
+        'https://example.com/',
+        1024,
+        3,
+        $deadline,
+    );
+
+    expect($result->response->status())->toBe(200);
+});
+
 test('a chain that is already past its deadline is not even resolved', function () {
     $dnsResolver = Mockery::mock(DnsResolver::class);
     // Resolving costs a DNS lookup that cannot be given a timeout, so an

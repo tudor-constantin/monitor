@@ -27,12 +27,20 @@ trait ExpiresUniqueJobLock
      * Derived from the retry policy rather than hard-coded so the two cannot
      * drift apart: every attempt may burn the full timeout, and every backoff
      * delay is spent between attempts while the lock is still held.
+     *
+     * A worker crash or hard timeout does not release the queue reservation:
+     * Laravel/Redis only makes the job visible to another worker again after
+     * the connection's retry_after (its visibility timeout), regardless of
+     * the job's own $backoff. Every attempt can therefore cost timeout +
+     * retry_after, not just timeout, or the lock can expire while the
+     * original job is still reserved for retry.
      */
     public function uniqueFor(): int
     {
         $attempts = max(1, $this->tries);
         $backoffSeconds = array_sum($this->backoff);
+        $retryAfter = (int) config("queue.connections.{$this->connection}.retry_after", 0);
 
-        return ($attempts * $this->timeout) + (int) $backoffSeconds;
+        return ($attempts * ($this->timeout + $retryAfter)) + (int) $backoffSeconds;
     }
 }

@@ -300,3 +300,25 @@ vendor/bin/pint --test --format agent
 php vendor/bin/phpstan analyse --memory-limit=1G
 npm run build
 ```
+
+### Running the suite against the local Docker stack
+
+There is one supported way to point a host PHP install (the same PHP used by
+CI, not a throwaway container) at the project's own MySQL/Redis: `compose.local.yaml`
+publishes both to `127.0.0.1`, matching the pattern it already uses for `app`.
+
+```bash
+docker compose -f compose.yaml -f compose.local.yaml up -d mysql redis
+docker exec monitor-mysql-1 mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  -e "CREATE DATABASE IF NOT EXISTS monitor_testing"
+
+cd app
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_USERNAME=monitor DB_PASSWORD="$DB_PASSWORD" \
+REDIS_HOST=127.0.0.1 REDIS_PORT=6379 REDIS_PASSWORD="$REDIS_PASSWORD" \
+  php artisan test --compact
+```
+
+`$MYSQL_ROOT_PASSWORD`, `$DB_PASSWORD`, and `$REDIS_PASSWORD` are the values from
+your `.env` (see `.env.example`). Do not install extra PHP images or ad-hoc
+network-bridging containers for this — if host PHP cannot reach a service the
+compose stack already runs, publish that service's port here instead.
