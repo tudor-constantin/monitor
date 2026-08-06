@@ -205,10 +205,14 @@ class StatusPageHistoryService
             ];
         }
 
-        // Only look at raw checks as far back as they are retained; beyond that
-        // the pruner has removed them and the roll-up is the only witness.
+        // Only look at raw checks as far back as they are fully retained. The
+        // pruner deletes by an exact checked_at timestamp, not a day boundary,
+        // so the calendar day the cutoff falls in can be left with only some
+        // of its checks. Starting live counts the day *after* that cutoff
+        // guarantees every day counted here is either complete or excluded,
+        // leaving the roll-up as the sole witness for the possibly-partial day.
         $retentionDays = max(1, (int) config('monitoring.check_retention_days', 90));
-        $liveFrom = now()->startOfDay()->subDays($retentionDays);
+        $liveFrom = now()->subDays($retentionDays)->startOfDay()->addDay();
         $liveFrom = $liveFrom->greaterThan($startsAt) ? $liveFrom : $startsAt;
 
         $liveChecks = MonitorCheck::query()

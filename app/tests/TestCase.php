@@ -14,9 +14,18 @@ abstract class TestCase extends BaseTestCase
      */
     private const TESTING_DATABASE_SUFFIX = '_testing';
 
-    protected function setUp(): void
+    /**
+     * Guard the database name as soon as the application exists.
+     *
+     * refreshApplication() is what parent::setUp() calls to build $this->app,
+     * and it runs before setUpTraits() processes RefreshDatabase. Checking
+     * here — rather than after parent::setUp() returns — means the guard is
+     * evaluated before RefreshDatabase can drop a single table, instead of
+     * after the destructive work it exists to prevent is already done.
+     */
+    protected function refreshApplication(): void
     {
-        parent::setUp();
+        parent::refreshApplication();
 
         $this->ensureTestingDatabase();
     }

@@ -1,8 +1,10 @@
 <?php
 
+use App\Actions\Monitors\PruneOldMonitorChecks;
 use App\Enums\MonitorCheckStatus;
 use App\Models\Monitor;
 use App\Models\MonitorCheck;
+use App\Models\MonitorCheckDailyStat;
 use App\Services\StatusPages\StatusPageHistoryService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -116,3 +118,44 @@ test('history dates remain consecutive across calendar boundaries', function (
     'thirty days including leap day' => [30, '2024-03-01 12:00:00', '2024-02-01'],
     'ninety days crossing a year' => [90, '2026-01-15 12:00:00', '2025-10-18'],
 ]);
+
+test('a partially pruned cutoff day does not overwrite the complete daily roll-up', function () {
+    // Retention cutoff falls at 2026-07-23 02:00:00: the pruner deletes
+    // checked_at < cutoff, which removes the 01:00 check but leaves the 03:00
+    // one on the same calendar day, so raw rows for that day are incomplete.
+    Carbon::setTestNow('2026-07-30 02:00:00');
+    config(['monitoring.check_retention_days' => 7]);
+
+    $monitor = Monitor::factory()->create();
+
+    MonitorCheckDailyStat::query()->create([
+        'monitor_id' => $monitor->id,
+        'date' => '2026-07-23',
+        'total_checks' => 2,
+        'successful_checks' => 1,
+    ]);
+
+    MonitorCheck::factory()->for($monitor)->create([
+        'status' => MonitorCheckStatus::Successful,
+        'checked_at' => '2026-07-23 01:00:00',
+    ]);
+    MonitorCheck::factory()->for($monitor)->create([
+        'status' => MonitorCheckStatus::Failed,
+        'checked_at' => '2026-07-23 03:00:00',
+    ]);
+
+    app(PruneOldMonitorChecks::class)->handle(now()->subDays(7));
+
+    $history = app(StatusPageHistoryService::class)->forMonitors(
+        new Collection([$monitor]),
+        30,
+    );
+
+    $segment = collect($history['monitors'][$monitor->id]['segments'])
+        ->firstWhere('date', '2026-07-23');
+
+    expect($segment)
+        ->total_checks->toBe(2)
+        ->successful_checks->toBe(1)
+        ->state->toBe('degraded');
+});

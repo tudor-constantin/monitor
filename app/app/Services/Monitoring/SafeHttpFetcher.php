@@ -120,11 +120,15 @@ class SafeHttpFetcher
         float $deadline,
     ): SafeHttpResult {
         for ($redirectCount = 0; $redirectCount <= $maximumRedirects; $redirectCount++) {
-            if ($deadline - microtime(true) < 1) {
+            if ($deadline - microtime(true) <= 0) {
                 // Checked before resolving, not just before sending: a hop to a
                 // new host costs a DNS lookup, and dns_get_record cannot be
-                // given a timeout, so starting one past the deadline is how a
+                // given a timeout, so starting past the deadline is how a
                 // check overruns the job timeout that is supposed to contain it.
+                // Only the deadline actually having passed is rejected here:
+                // the minimum allowed monitor timeout is 1 second, and
+                // requiring a full second of headroom on top of that would
+                // reject every one-second check before it could be sent.
                 throw new ConnectionException(
                     "The request to [{$url}] timed out before it could be sent.",
                 );
