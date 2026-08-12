@@ -27,7 +27,11 @@ class ReserveMonitorCheck
                 return false;
             }
 
-            CheckMonitor::dispatch($monitor)->afterCommit();
+            // The slot being reserved, captured before next_check_at moves on.
+            // Every copy of this dispatch -- retries, and any copy the unique
+            // lock failed to keep out -- carries it, which is what lets the
+            // write guard tell them apart from a genuinely later check.
+            CheckMonitor::dispatch($monitor, $monitor->next_check_at)->afterCommit();
 
             return true;
         });

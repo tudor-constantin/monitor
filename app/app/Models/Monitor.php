@@ -31,6 +31,9 @@ use Illuminate\Support\Facades\Storage;
  * @property int $consecutive_failures
  * @property Carbon|null $last_checked_at
  * @property Carbon|null $next_check_at
+ * @property string|null $check_claim_token
+ * @property Carbon|null $check_claim_expires_at
+ * @property Carbon|null $last_check_epoch
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -121,6 +124,8 @@ class Monitor extends Model
             'consecutive_failures' => 'integer',
             'last_checked_at' => 'datetime',
             'next_check_at' => 'datetime',
+            'check_claim_expires_at' => 'datetime',
+            'last_check_epoch' => 'datetime',
         ];
     }
 }

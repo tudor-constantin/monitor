@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Monitors\ClaimMonitorCheck;
 use App\Actions\Monitors\PersistMonitorCheck;
 use App\Contracts\DnsResolver;
 use App\Enums\MonitorCheckStatus;
@@ -18,7 +19,7 @@ beforeEach(function () {
 function runCheck(Monitor $monitor): void
 {
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 }
 
 test('an apex to www redirect is followed instead of being reported as a failure', function () {

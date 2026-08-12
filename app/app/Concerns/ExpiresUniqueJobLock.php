@@ -4,43 +4,40 @@ declare(strict_types=1);
 
 namespace App\Concerns;
 
+use App\Actions\Monitors\ClaimMonitorCheck;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 
 /**
- * Bounds the lifetime of the {@see ShouldBeUnique}
- * lock to the worst case a job can legitimately occupy it.
+ * Gives the {@see ShouldBeUnique} lock a finite lifetime.
  *
- * Laravel defaults `uniqueFor` to 0, which makes RedisLock acquire the key with
- * a plain SETNX and therefore *no expiry*. If a worker dies between acquiring
- * and releasing (OOM kill, `docker kill`, host crash, PHP fatal error) the key
- * survives forever and every later dispatch of that job is silently discarded.
+ * This keeps the scheduler from stacking copies of a job behind one that is
+ * already waiting, and nothing more. It is not, and cannot be, a guarantee that
+ * only one copy runs: Laravel takes the lock at dispatch, but the job does not
+ * start until a worker pops it, and nothing bounds that wait -- not the first
+ * one, and not the wait before a retry, which migrateExpiredJobs rpushes onto
+ * the back of the queue. A deep enough backlog outlives any TTL.
  *
- * For a monitoring application that failure is invisible and permanent: the
- * scheduler keeps advancing `next_check_at`, the dispatch keeps reporting
- * success, and the monitor is simply never checked again.
+ * A TTL of 0 -- Laravel's default -- is worse, which is why this exists at all.
+ * RedisLock would then acquire the key with a bare SETNX and no expiry, so a
+ * worker killed mid-job (OOM, `docker kill`, host crash, PHP fatal) strands the
+ * key forever: the scheduler keeps advancing next_check_at, every dispatch
+ * keeps reporting success, and the monitor is never checked again.
+ *
+ * Because this is best-effort, nothing depends on it being right. Duplicate
+ * checks are prevented where it is actually decidable -- at the point of doing
+ * the work -- by the claim token in {@see ClaimMonitorCheck}.
  */
 trait ExpiresUniqueJobLock
 {
-    /**
-     * Seconds the unique lock may be held before it expires on its own.
-     *
-     * Derived from the retry policy rather than hard-coded so the two cannot
-     * drift apart: every attempt may burn the full timeout, and every backoff
-     * delay is spent between attempts while the lock is still held.
-     *
-     * A worker crash or hard timeout does not release the queue reservation:
-     * Laravel/Redis only makes the job visible to another worker again after
-     * the connection's retry_after (its visibility timeout), regardless of
-     * the job's own $backoff. Every attempt can therefore cost timeout +
-     * retry_after, not just timeout, or the lock can expire while the
-     * original job is still reserved for retry.
-     */
     public function uniqueFor(): int
     {
-        $attempts = max(1, $this->tries);
-        $backoffSeconds = array_sum($this->backoff);
-        $retryAfter = (int) config("queue.connections.{$this->connection}.retry_after", 0);
+        $connection = $this->connection ?? config('queue.default');
+        $retryAfter = (int) config("queue.connections.{$connection}.retry_after", 0);
 
-        return ($attempts * ($this->timeout + $retryAfter)) + (int) $backoffSeconds;
+        // A crash does not release the queue reservation: the job reappears
+        // only after the connection's retry_after, whatever $backoff says. So
+        // an attempt costs the larger of the two, plus the backoff between.
+        return (max(1, $this->tries) * max($this->timeout, $retryAfter))
+            + (int) array_sum($this->backoff);
     }
 }

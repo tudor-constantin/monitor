@@ -3,44 +3,39 @@
 use App\Jobs\CheckMonitor;
 use App\Jobs\FetchMonitorFavicon;
 use App\Models\Monitor;
-use Illuminate\Support\Carbon;
 
-afterEach(function () {
-    Carbon::setTestNow();
+/**
+ * The unique lock is best-effort queue hygiene, not the duplicate-check
+ * guarantee -- that lives in MonitorCheckClaimTest. What is pinned here is the
+ * one thing it must not do: last forever, or expire so early that the scheduler
+ * stacks a copy behind every attempt.
+ */
+test('the unique lock expires rather than stranding a monitor forever', function () {
+    $retryAfter = (int) config('queue.connections.redis.retry_after');
+
+    $jobs = [
+        new CheckMonitor(Monitor::factory()->make()),
+        new FetchMonitorFavicon(Monitor::factory()->make()),
+    ];
+
+    foreach ($jobs as $job) {
+        // uniqueFor 0 -- Laravel's default -- means a bare SETNX with no expiry:
+        // a worker killed mid-job strands the key and the monitor is never
+        // checked again. It also has to cover the retry lifecycle, where a
+        // crashed attempt holds the queue reservation for a whole retry_after.
+        expect($job->uniqueFor())->toBeGreaterThanOrEqual($job->tries * $retryAfter)
+            ->and($job->uniqueFor())->toBeLessThan(3600);
+    }
 });
 
-test('the unique lock on a monitor check expires instead of being held forever', function () {
-    $monitor = Monitor::factory()->create(['timeout_seconds' => 10]);
-    $job = new CheckMonitor($monitor);
-
-    // Laravel defaults uniqueFor to 0, which acquires the Redis key with a bare
-    // SETNX and no TTL: a worker killed mid-job would strand it and the monitor
-    // would never be checked again.
-    expect($job->uniqueFor())->toBeGreaterThan(0)
-        // Must outlast the worst case the retry policy allows, or a second check
-        // could start while the first is still retrying.
-        ->and($job->uniqueFor())->toBeGreaterThanOrEqual($job->tries * $job->timeout);
-});
-
-test('the unique lock on a favicon fetch also expires', function () {
-    $job = new FetchMonitorFavicon(Monitor::factory()->create());
-
-    expect($job->uniqueFor())->toBeGreaterThanOrEqual($job->tries * $job->timeout);
-});
-
-test('the unique lock outlives a worker crash and the queue visibility timeout', function () {
-    // A worker killed mid-job does not release the Redis queue reservation:
-    // the job only becomes visible again after the connection's retry_after.
-    // If the unique lock expires before that, the scheduler can dispatch a
-    // duplicate check for the same monitor while the original is still
-    // reserved for retry.
+test('the lock covers a crashed attempt, not merely the job timeout', function () {
     config(['queue.connections.redis.retry_after' => 90]);
 
-    $monitor = Monitor::factory()->create(['timeout_seconds' => 10]);
-    $job = new CheckMonitor($monitor);
+    // Every reachable timeout is below retry_after, so sizing the lock from the
+    // timeout alone -- the original bug -- always under-counts.
+    foreach ([1, 10, 30, 60] as $timeoutSeconds) {
+        $job = new CheckMonitor(Monitor::factory()->make(['timeout_seconds' => $timeoutSeconds]));
 
-    $retryAfter = (int) config('queue.connections.redis.retry_after');
-    $worstCaseHoldTime = $job->tries * ($job->timeout + $retryAfter);
-
-    expect($job->uniqueFor())->toBeGreaterThanOrEqual($worstCaseHoldTime);
+        expect($job->uniqueFor())->toBeGreaterThan($job->tries * $job->timeout);
+    }
 });

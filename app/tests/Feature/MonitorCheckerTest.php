@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Monitors\ClaimMonitorCheck;
 use App\Actions\Monitors\PersistMonitorCheck;
 use App\Contracts\DnsResolver;
 use App\Enums\MonitorCheckStatus;
@@ -31,7 +32,7 @@ test('a queued check persists a normalized successful result', function () {
     ]);
 
     $job = new CheckMonitor($monitor);
-    $job->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+    $job->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     $check = $monitor->checks()->sole();
 
@@ -73,7 +74,7 @@ test('an unexpected status code is persisted as a failed check', function () {
     ]);
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     $check = $monitor->checks()->sole();
 
@@ -98,7 +99,7 @@ test('connection errors are normalized and persisted', function () {
     ]);
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     expect($monitor->checks()->sole())
         ->status->toBe(MonitorCheckStatus::ConnectionError)
@@ -120,7 +121,7 @@ test('connection timeouts are normalized and persisted', function () {
     ]);
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     expect($monitor->checks()->sole())
         ->status->toBe(MonitorCheckStatus::Timeout)
@@ -141,7 +142,7 @@ test('oversized responses are rejected before they are persisted', function () {
     ]);
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     expect($monitor->checks()->sole())
         ->status->toBe(MonitorCheckStatus::InvalidResponse)
@@ -162,7 +163,7 @@ test('a destination resolving to any non-global address is blocked before connec
     Http::fake();
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     expect($monitor->checks()->sole())
         ->status->toBe(MonitorCheckStatus::Blocked)
@@ -191,7 +192,7 @@ test('paused monitors are not checked', function () {
     Http::fake();
 
     (new CheckMonitor($monitor))
-        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class));
+        ->handle(app(MonitorChecker::class), app(PersistMonitorCheck::class), app(ClaimMonitorCheck::class));
 
     expect($monitor->checks()->count())->toBe(0);
     Http::assertNothingSent();

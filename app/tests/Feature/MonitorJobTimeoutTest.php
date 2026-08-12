@@ -78,17 +78,13 @@ test('a monitor stored above a since lowered ceiling still gets a queue timeout 
     });
 });
 
-test('the unique lock outlives the retry budget even for a scheduler dispatched check', function () {
+test('a scheduler dispatched check gets a unique lock sized from the same model as its timeout', function () {
     Queue::fake();
 
-    $monitor = Monitor::factory()->due()->create(['timeout_seconds' => 60]);
+    Monitor::factory()->due()->create(['timeout_seconds' => 60]);
+    $retryAfter = (int) config('queue.connections.redis.retry_after');
 
     app(DispatchDueMonitorChecks::class)->handle();
 
-    Queue::assertPushed(function (CheckMonitor $job) use ($monitor): bool {
-        // uniqueFor() is derived from $this->timeout, so an under-computed
-        // timeout would also shorten the lock and let a second check start
-        // while the first is still retrying.
-        return $job->uniqueFor() >= $job->tries * ($monitor->timeout_seconds + 1);
-    });
+    Queue::assertPushed(fn (CheckMonitor $job): bool => $job->uniqueFor() >= $job->tries * $retryAfter);
 });
