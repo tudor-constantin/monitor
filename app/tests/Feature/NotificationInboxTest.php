@@ -2,7 +2,6 @@
 
 use App\Models\Monitor;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
@@ -60,15 +59,15 @@ test('a user cannot touch another user notification', function () {
     storeDownNotification($other);
 
     $foreignId = $other->notifications()->sole()->id;
-    $component = Livewire::actingAs($user)->test('pages::notifications.index');
-
     // The lookup is scoped to the authenticated user, so someone else's ID
-    // simply does not exist as far as this component is concerned.
-    expect(fn () => $component->call('delete', $foreignId))
-        ->toThrow(ModelNotFoundException::class);
-
-    expect(fn () => $component->call('markAsRead', $foreignId))
-        ->toThrow(ModelNotFoundException::class);
+    // simply does not exist as far as this component is concerned. A 404
+    // leaves no usable snapshot behind, so each call gets a fresh component.
+    foreach (['delete', 'markAsRead'] as $action) {
+        Livewire::actingAs($user)
+            ->test('pages::notifications.index')
+            ->call($action, $foreignId)
+            ->assertStatus(404);
+    }
 
     expect($other->notifications()->count())->toBe(1)
         ->and($other->unreadNotifications()->count())->toBe(1);

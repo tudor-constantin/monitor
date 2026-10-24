@@ -24,7 +24,7 @@ cp .env.example .env
 Generate an application key:
 
 ```bash
-docker run --rm php:8.4.23-cli-alpine php -r 'echo "base64:".base64_encode(random_bytes(32)).PHP_EOL;'
+docker run --rm php:8.4.27-cli-alpine php -r 'echo "base64:".base64_encode(random_bytes(32)).PHP_EOL;'
 ```
 
 Copy the generated value into `APP_KEY` and configure the passwords and SMTP credentials in `.env`. For local HTTP access, use:

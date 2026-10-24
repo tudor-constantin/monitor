@@ -4,7 +4,6 @@ use App\Actions\Monitors\CreateMonitor;
 use App\Enums\MonitorStatus;
 use App\Models\Monitor;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
@@ -252,10 +251,10 @@ test('a user cannot view or modify another users monitor', function () {
         ->get(route('monitors.edit', $otherMonitor))
         ->assertForbidden();
 
-    expect(fn () => Livewire::actingAs($user)
+    Livewire::actingAs($user)
         ->test('pages::monitors.index')
-        ->call('pause', $otherMonitor->id))
-        ->toThrow(ModelNotFoundException::class);
+        ->call('pause', $otherMonitor->id)
+        ->assertStatus(404);
 
     expect($otherMonitor->refresh()->is_active)->toBeTrue();
 });
