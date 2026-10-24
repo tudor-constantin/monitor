@@ -5,6 +5,7 @@ FROM composer:2.10.3@sha256:b6dcd72ca98fa19d0e5b8476de179859704891fad06dd9e0b968
 FROM php:8.4.27-fpm-alpine@sha256:6b83fd767e1902ae4c89fe11f929f02e78bf769215c703060ac8a7c4be672c8c AS php-base
 
 RUN apk add --no-cache \
+        brotli-libs=1.2.1-r0 \
         curl=8.22.0-r0 \
         icu-libs=78.1-r0 \
         libzip=1.11.4-r2 \
