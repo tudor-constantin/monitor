@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 
-FROM composer:2.10.2@sha256:5946476338742b200bb9ff88f8be56275ddae4b3949c72305cb0dbf10cfcb760 AS composer-binary
+FROM composer:2.10.3@sha256:b6dcd72ca98fa19d0e5b8476de179859704891fad06dd9e0b96833d4c430a5fc AS composer-binary
 
-FROM php:8.4.23-fpm-alpine@sha256:913ddd6934a805429618a16aa36da47cd8a8aec8b2f111c294936ba4003fded6 AS php-base
+FROM php:8.4.27-fpm-alpine@sha256:6b83fd767e1902ae4c89fe11f929f02e78bf769215c703060ac8a7c4be672c8c AS php-base
 
 RUN apk add --no-cache \
-        curl=8.21.0-r0 \
+        curl=8.22.0-r0 \
         icu-libs=78.1-r0 \
         libzip=1.11.4-r2 \
-        nginx=1.30.4-r1 \
+        nginx=1.30.6-r0 \
         oniguruma=6.9.10-r0 \
         supervisor=4.3.0-r1 \
     && apk add --no-cache --virtual .build-dependencies \
@@ -18,7 +18,7 @@ RUN apk add --no-cache \
         file=5.47-r2 \
         g++=15.2.0-r5 \
         gcc=15.2.0-r5 \
-        musl-dev=1.2.6-r2 \
+        musl-dev=1.2.6-r3 \
         make=4.4.1-r4 \
         pkgconf=2.5.1-r0 \
         re2c=4.5.1-r0 \
@@ -60,7 +60,7 @@ RUN composer dump-autoload \
     --no-dev \
     --no-interaction
 
-FROM node:22.23.2-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS assets
+FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS assets
 
 WORKDIR /app
 

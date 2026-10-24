@@ -10,15 +10,15 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "8.4.23",
+        "php": "8.4.27",
         "laravel/chisel": "0.1.1",
         "laravel/fortify": "1.37.3",
-        "laravel/framework": "13.23.0",
+        "laravel/framework": "13.38.0",
         "laravel/horizon": "5.48.1",
         "laravel/tinker": "3.0.2",
         "livewire/blaze": "1.0.13",
         "livewire/flux": "2.15.0",
-        "livewire/livewire": "4.3.3"
+        "livewire/livewire": "4.4.8"
     },
     "require-dev": {
         "fakerphp/faker": "1.24.1",
@@ -99,7 +99,7 @@
     "config": {
         "optimize-autoloader": true,
         "platform": {
-            "php": "8.4.23"
+            "php": "8.4.27"
         },
         "preferred-install": "dist",
         "sort-packages": true,
